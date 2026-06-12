@@ -162,19 +162,23 @@ func (ctrl *BatchController) BatchUpdate(c *gin.Context) {
 
 	for i := range cartridges {
 		changed := false
+		updateFields := make(map[string]interface{})
+
 		for field, value := range req.Fields {
 			beforeVal := getFieldValue(&cartridges[i], field)
 			afterVal := calculateNewValue(beforeVal, value, req.Mode, req.Increment)
 
 			if fmt.Sprintf("%v", beforeVal) != fmt.Sprintf("%v", afterVal) {
 				setFieldValue(&cartridges[i], field, afterVal)
+				dbColumn := getDBColumnName(field)
+				updateFields[dbColumn] = getFieldValue(&cartridges[i], field)
 				changed = true
 			}
 		}
 
 		if changed {
-			cartridges[i].UpdatedAt = now
-			result := database.DB.Save(&cartridges[i])
+			updateFields["updated_at"] = now
+			result := database.DB.Model(&models.Cartridge{}).Where("id = ?", cartridges[i].ID).Updates(updateFields)
 			if result.Error == nil {
 				updatedCount++
 			}
@@ -296,6 +300,29 @@ func (ctrl *BatchController) BatchDelete(c *gin.Context) {
 		"deletedCount": result.RowsAffected,
 		"totalCount":   len(req.IDs),
 	})
+}
+
+func getDBColumnName(field string) string {
+	switch field {
+	case "platform":
+		return "platform"
+	case "condition":
+		return "condition"
+	case "region":
+		return "region"
+	case "purchasePrice":
+		return "purchase_price"
+	case "publisher":
+		return "publisher"
+	case "releaseYear":
+		return "release_year"
+	case "status":
+		return "status"
+	case "notes":
+		return "notes"
+	default:
+		return field
+	}
 }
 
 func getFieldValue(cartridge *models.Cartridge, field string) interface{} {

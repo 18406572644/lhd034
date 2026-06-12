@@ -158,6 +158,29 @@ func (ctrl *DataQualityController) FixDuplicates(c *gin.Context) {
 	})
 }
 
+func getDBColumn(field string) string {
+	switch field {
+	case "platform":
+		return "platform"
+	case "condition":
+		return "condition"
+	case "region":
+		return "region"
+	case "purchasePrice":
+		return "purchase_price"
+	case "publisher":
+		return "publisher"
+	case "releaseYear":
+		return "release_year"
+	case "status":
+		return "status"
+	case "notes":
+		return "notes"
+	default:
+		return field
+	}
+}
+
 func (ctrl *DataQualityController) FixMissingFields(c *gin.Context) {
 	var req struct {
 		Field   string      `json:"field" binding:"required"`
@@ -169,11 +192,13 @@ func (ctrl *DataQualityController) FixMissingFields(c *gin.Context) {
 		return
 	}
 
+	dbColumn := getDBColumn(req.Field)
+
 	query := database.DB.Model(&models.Cartridge{})
 	if len(req.IDs) > 0 {
 		query = query.Where("id IN ?", req.IDs)
 	} else {
-		switch req.Field {
+		switch dbColumn {
 		case "platform":
 			query = query.Where("platform = '' OR platform IS NULL")
 		case "publisher":
@@ -185,7 +210,7 @@ func (ctrl *DataQualityController) FixMissingFields(c *gin.Context) {
 		}
 	}
 
-	result := query.Update(req.Field, req.Value)
+	result := query.Update(dbColumn, req.Value)
 
 	utils.Success(c, gin.H{
 		"updatedCount": result.RowsAffected,
