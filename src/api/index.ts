@@ -23,7 +23,14 @@ import type {
   BackupConfig,
   PlayingSession,
   PlayingProgress,
-  PlayingCartridgeProgress
+  PlayingCartridgeProgress,
+  BatchUpdateRequest,
+  BatchUpdatePreview,
+  BatchActionResult,
+  DataQualityReport,
+  DuplicateGroup,
+  MissingFieldStat,
+  AnomalyItem
 } from '@/types'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -246,5 +253,44 @@ export const backupApi = {
   },
   updateConfig(config: Partial<BackupConfig>) {
     return api.put<BackupConfig>('/backups/config', config)
+  }
+}
+
+export const batchApi = {
+  updatePreview(data: BatchUpdateRequest) {
+    return api.post<BatchUpdatePreview>('/batch/update/preview', data)
+  },
+  update(data: BatchUpdateRequest) {
+    return api.post<BatchActionResult>('/batch/update', data)
+  },
+  addToWishlist(ids: number[], tags?: string[]) {
+    return api.post<BatchActionResult>('/batch/wishlist', { ids, tags })
+  },
+  setTags(ids: number[], tags: string[], action: 'overwrite' | 'append' = 'append') {
+    return api.post<BatchActionResult>('/batch/tags', { ids, tags, action })
+  },
+  deleteCartridges(ids: number[]) {
+    return api.delete<BatchActionResult>('/batch/cartridges', { data: { ids } })
+  }
+}
+
+export const dataQualityApi = {
+  getReport() {
+    return api.get<DataQualityReport>('/data-quality/report')
+  },
+  getDuplicates() {
+    return api.get<DuplicateGroup[]>('/data-quality/duplicates')
+  },
+  getMissingFields() {
+    return api.get<MissingFieldStat[]>('/data-quality/missing-fields')
+  },
+  getAnomalies() {
+    return api.get<AnomalyItem[]>('/data-quality/anomalies')
+  },
+  fixDuplicates(keepId: number) {
+    return api.post<BatchActionResult>('/data-quality/fix-duplicates', { keepId })
+  },
+  fixMissingField(field: string, value: any, ids?: number[]) {
+    return api.post<BatchActionResult>('/data-quality/fix-missing', { field, value, ids })
   }
 }

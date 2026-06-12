@@ -271,3 +271,70 @@ export const PlayStatusBadgeClass: Record<string, string> = {
   completed: 'pixel-badge-success',
   shelved: 'pixel-badge-danger'
 }
+
+export interface BatchUpdateRequest {
+  ids: number[]
+  fields: Record<string, any>
+  mode?: 'overwrite' | 'append' | 'increment' | 'percentage'
+  increment?: number
+}
+
+export interface FieldChangePreview {
+  field: string
+  label: string
+  beforeValue: any
+  afterValue: any
+  changeCount: number
+}
+
+export interface BatchUpdatePreview {
+  totalRecords: number
+  fieldChanges: FieldChangePreview[]
+  sampleBefore: Cartridge[]
+  sampleAfter: Record<string, any>[]
+}
+
+export interface BatchActionResult {
+  updatedCount: number
+  totalCount: number
+  addedCount?: number
+  skippedCount?: number
+  deletedCount?: number
+}
+
+export interface DuplicateGroup {
+  key: string
+  title: string
+  platform: string
+  releaseYear: number
+  count: number
+  cartridges: Cartridge[]
+}
+
+export interface MissingFieldStat {
+  field: string
+  label: string
+  missingCount: number
+  missingRate: number
+}
+
+export interface AnomalyItem {
+  id: number
+  title: string
+  field: string
+  label: string
+  value: string
+  reason: string
+  severity: 'low' | 'medium' | 'high'
+}
+
+export interface DataQualityReport {
+  totalCartridges: number
+  completenessScore: number
+  duplicateCount: number
+  duplicateGroups: DuplicateGroup[]
+  missingFields: MissingFieldStat[]
+  anomalies: AnomalyItem[]
+  anomalyCount: number
+  lastScanTime: string
+}

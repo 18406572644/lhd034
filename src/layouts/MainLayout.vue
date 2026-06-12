@@ -21,6 +21,7 @@ const menuItems = [
   { path: '/showcase', name: '虚拟展柜', icon: '🖼️' },
   { path: '/statistics', name: '统计分析', icon: '📈' },
   { path: '/borrows', name: '借还管理', icon: '🔄' },
+  { path: '/governance', name: '数据治理', icon: '🔧' },
   { path: '/settings', name: '备份设置', icon: '⚙️' }
 ]
 

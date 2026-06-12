@@ -20,6 +20,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'showcase', name: 'showcase', component: () => import('@/pages/Showcase.vue') },
       { path: 'statistics', name: 'statistics', component: () => import('@/pages/Statistics.vue') },
       { path: 'borrows', name: 'borrows', component: () => import('@/pages/BorrowList.vue') },
+      { path: 'governance', name: 'governance', component: () => import('@/pages/DataGovernance.vue') },
       { path: 'settings', name: 'settings', component: () => import('@/pages/BackupSettings.vue') },
       { path: 'labels/batch', name: 'label-batch', component: () => import('@/pages/LabelBatchPrint.vue') },
       { path: 'scanner', name: 'qr-scanner', component: () => import('@/pages/QRScanner.vue') }

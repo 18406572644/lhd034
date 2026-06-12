@@ -30,6 +30,8 @@ func SetupRouter() *gin.Engine {
 		borrowCtrl := controllers.NewBorrowController()
 		statsCtrl := controllers.NewStatisticsController()
 		sessionCtrl := controllers.NewPlayingSessionController()
+		batchCtrl := controllers.NewBatchController()
+		dataQualityCtrl := controllers.NewDataQualityController()
 
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -110,6 +112,25 @@ func SetupRouter() *gin.Engine {
 
 		cartridges.GET("/:id/sessions", sessionCtrl.GetByCartridge)
 		cartridges.GET("/:id/progress", sessionCtrl.GetProgress)
+
+		batch := api.Group("/batch")
+		{
+			batch.POST("/update/preview", batchCtrl.BatchUpdatePreview)
+			batch.POST("/update", batchCtrl.BatchUpdate)
+			batch.POST("/wishlist", batchCtrl.BatchAddToWishlist)
+			batch.POST("/tags", batchCtrl.BatchSetTags)
+			batch.DELETE("/cartridges", batchCtrl.BatchDelete)
+		}
+
+		dataQuality := api.Group("/data-quality")
+		{
+			dataQuality.GET("/report", dataQualityCtrl.GetQualityReport)
+			dataQuality.GET("/duplicates", dataQualityCtrl.ScanDuplicates)
+			dataQuality.GET("/missing-fields", dataQualityCtrl.ScanMissingFields)
+			dataQuality.GET("/anomalies", dataQualityCtrl.ScanAnomalies)
+			dataQuality.POST("/fix-duplicates", dataQualityCtrl.FixDuplicates)
+			dataQuality.POST("/fix-missing", dataQualityCtrl.FixMissingFields)
+		}
 
 		backups := api.Group("/backups")
 		{
