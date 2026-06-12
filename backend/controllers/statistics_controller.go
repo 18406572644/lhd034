@@ -5,6 +5,7 @@ import (
 	"cartridge-archive/models"
 	"cartridge-archive/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -299,23 +300,40 @@ func (ctrl *StatisticsController) GetValueTrend(c *gin.Context) {
 
 func (ctrl *StatisticsController) GetRegionDistribution(c *gin.Context) {
 	regionLabels := map[string]string{
-		"jp":    "日版",
-		"japan": "日版",
-		"us":    "美版",
-		"usa":   "美版",
-		"eu":    "欧版",
-		"europe": "欧版",
-		"cn":    "国行",
-		"china": "国行",
-		"hk":    "港版",
-		"asia":  "亚洲版",
-		"global": "全球版",
+		"jp":        "日版",
+		"japan":     "日版",
+		"日版":       "日版",
+		"us":        "美版",
+		"usa":       "美版",
+		"美版":       "美版",
+		"eu":        "欧版",
+		"europe":    "欧版",
+		"欧版":       "欧版",
+		"cn":        "国行",
+		"china":     "国行",
+		"国行":       "国行",
+		"hk":        "港版",
+		"港版":       "港版",
+		"asia":      "亚洲版",
+		"亚洲版":     "亚洲版",
+		"global":    "全球版",
 		"worldwide": "全球版",
+		"全球版":     "全球版",
+	}
+
+	validRegions := map[string]bool{
+		"日版":   true,
+		"美版":   true,
+		"欧版":   true,
+		"国行":   true,
+		"港版":   true,
+		"亚洲版": true,
+		"全球版": true,
 	}
 
 	var rawStats []struct {
-		Region string `json:"region"`
-		Count  int64  `json:"count"`
+		Region string `gorm:"column:region" json:"region"`
+		Count  int64  `gorm:"column:count" json:"count"`
 	}
 
 	database.DB.Model(&models.Cartridge{}).
@@ -327,12 +345,14 @@ func (ctrl *StatisticsController) GetRegionDistribution(c *gin.Context) {
 	groupedMap["其他"] = 0
 
 	for _, item := range rawStats {
-		regionKey := item.Region
+		regionKey := strings.ToLower(strings.TrimSpace(item.Region))
 		label, exists := regionLabels[regionKey]
 		if exists {
 			groupedMap[label] += item.Count
-		} else if regionKey == "unknown" {
+		} else if item.Region == "unknown" {
 			groupedMap["未指定"] = item.Count
+		} else if validRegions[item.Region] {
+			groupedMap[item.Region] += item.Count
 		} else {
 			groupedMap["其他"] += item.Count
 		}

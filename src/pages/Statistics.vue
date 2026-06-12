@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { statisticsApi } from '@/api'
 import { ConditionLabels } from '@/types'
@@ -57,6 +57,11 @@ let completionChart: echarts.ECharts | null = null
 
 const neonColors = ['#00F0FF', '#FFD93D', '#FF6B9D', '#6BCB77', '#FF8C42', '#FF4757', '#A78BFA', '#22D3EE']
 
+const DEBUG = true
+const debugLog = (msg: string, ...args: any[]) => {
+  if (DEBUG) console.log(`[Statistics] ${msg}`, ...args)
+}
+
 const getCompletionColor = () => {
   const rate = completionRate.value?.rate ?? 0
   if (rate >= 80) return '#6BCB77'
@@ -70,25 +75,96 @@ const initYears = () => {
   years.value = Array.from({ length: 5 }, (_, i) => currentYear - i)
 }
 
+const safeInitChart = (
+  refEl: HTMLDivElement | null | undefined,
+  existingInstance: echarts.ECharts | null,
+  chartName: string
+): echarts.ECharts | null => {
+  try {
+    if (!refEl) {
+      debugLog(`⚠️ ${chartName} ref is null, skipping init`)
+      return existingInstance
+    }
+    if (existingInstance) {
+      debugLog(`♻️ disposing old ${chartName} instance before re-init`)
+      existingInstance.dispose()
+    }
+    const instance = echarts.init(refEl)
+    debugLog(`✅ ${chartName} initialized OK`, {
+      clientWidth: refEl.clientWidth,
+      clientHeight: refEl.clientHeight
+    })
+    return instance
+  } catch (e) {
+    console.error(`[Statistics] ❌ Failed to init ${chartName}:`, e)
+    return existingInstance
+  }
+}
+
 const initCharts = () => {
-  if (annualChartRef.value) annualChart = echarts.init(annualChartRef.value)
-  if (platformChartRef.value) platformChart = echarts.init(platformChartRef.value)
-  if (publisherChartRef.value) publisherChart = echarts.init(publisherChartRef.value)
-  if (conditionChartRef.value) conditionChart = echarts.init(conditionChartRef.value)
-  if (ratingChartRef.value) ratingChart = echarts.init(ratingChartRef.value)
-  if (playTimeChartRef.value) playTimeChart = echarts.init(playTimeChartRef.value)
-  if (difficultyChartRef.value) difficultyChart = echarts.init(difficultyChartRef.value)
-  if (valueTrendChartRef.value) valueTrendChart = echarts.init(valueTrendChartRef.value)
-  if (regionChartRef.value) regionChart = echarts.init(regionChartRef.value)
-  if (completionChartRef.value) completionChart = echarts.init(completionChartRef.value)
+  debugLog('initCharts() called, checking refs...', {
+    annual: !!annualChartRef.value,
+    platform: !!platformChartRef.value,
+    publisher: !!publisherChartRef.value,
+    condition: !!conditionChartRef.value,
+    rating: !!ratingChartRef.value,
+    playtime: !!playTimeChartRef.value,
+    difficulty: !!difficultyChartRef.value,
+    valuetrend: !!valueTrendChartRef.value,
+    region: !!regionChartRef.value,
+    completion: !!completionChartRef.value
+  })
+  annualChart = safeInitChart(annualChartRef.value, annualChart, 'annualChart')
+  platformChart = safeInitChart(platformChartRef.value, platformChart, 'platformChart')
+  publisherChart = safeInitChart(publisherChartRef.value, publisherChart, 'publisherChart')
+  conditionChart = safeInitChart(conditionChartRef.value, conditionChart, 'conditionChart')
+  ratingChart = safeInitChart(ratingChartRef.value, ratingChart, 'ratingChart')
+  playTimeChart = safeInitChart(playTimeChartRef.value, playTimeChart, 'playTimeChart')
+  difficultyChart = safeInitChart(difficultyChartRef.value, difficultyChart, 'difficultyChart')
+  valueTrendChart = safeInitChart(valueTrendChartRef.value, valueTrendChart, 'valueTrendChart')
+  regionChart = safeInitChart(regionChartRef.value, regionChart, 'regionChart')
+  completionChart = safeInitChart(completionChartRef.value, completionChart, 'completionChart')
+}
+
+const disposeAllCharts = () => {
+  const all = [
+    annualChart, platformChart, publisherChart, conditionChart,
+    ratingChart, playTimeChart, difficultyChart, valueTrendChart,
+    regionChart, completionChart
+  ]
+  all.forEach(inst => {
+    try { inst?.dispose() } catch (e) { /* noop */ }
+  })
+  annualChart = platformChart = publisherChart = conditionChart = null
+  ratingChart = playTimeChart = difficultyChart = valueTrendChart = null
+  regionChart = completionChart = null
+  debugLog('🧹 all charts disposed')
+}
+
+const safeSetOption = (
+  instance: echarts.ECharts | null,
+  option: any,
+  chartName: string
+) => {
+  if (!instance) {
+    debugLog(`⚠️ ${chartName} instance is null, skip render`)
+    return
+  }
+  try {
+    instance.setOption(option, true)
+    instance.resize()
+    debugLog(`🎨 ${chartName} rendered OK`)
+  } catch (e) {
+    console.error(`[Statistics] ❌ Failed to render ${chartName}:`, e)
+  }
 }
 
 const renderAnnualChart = () => {
   if (!annualChart) return
   const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-  const counts = monthlyData.value.map(d => d.count)
-
-  annualChart.setOption({
+  const counts = (monthlyData.value || []).map(d => d.count || 0)
+  debugLog('renderAnnualChart data:', counts)
+  safeSetOption(annualChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
     xAxis: {
@@ -116,24 +192,18 @@ const renderAnnualChart = () => {
         borderColor: '#FFD93D',
         borderWidth: 2
       },
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 20,
-          shadowColor: '#00F0FF'
-        }
-      },
       barWidth: '50%',
       animationDuration: 1500,
       animationEasing: 'elasticOut'
     }]
-  })
+  }, 'annualChart')
 }
 
 const renderPlatformChart = () => {
   if (!platformChart) return
-  const data = platformData.value.map(p => ({ name: p.platform, value: p.count }))
-
-  platformChart.setOption({
+  const data = (platformData.value || []).map(p => ({ name: p.platform || '未知', value: p.count || 0 }))
+  debugLog('renderPlatformChart data:', data)
+  safeSetOption(platformChart, {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'item', fontFamily: 'VT323', fontSize: 16 },
     legend: {
@@ -149,11 +219,7 @@ const renderPlatformChart = () => {
       radius: ['30%', '60%'],
       center: ['35%', '50%'],
       avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 4,
-        borderColor: '#1A1A2E',
-        borderWidth: 3
-      },
+      itemStyle: { borderRadius: 4, borderColor: '#1A1A2E', borderWidth: 3 },
       label: { show: false },
       emphasis: {
         label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#FFD93D', fontFamily: 'Press Start 2P' },
@@ -164,16 +230,16 @@ const renderPlatformChart = () => {
       animationDuration: 1500,
       animationEasing: 'bounceOut'
     }]
-  })
+  }, 'platformChart')
 }
 
 const renderPublisherChart = () => {
   if (!publisherChart) return
-  const top10 = [...publisherData.value].sort((a, b) => b.count - a.count).slice(0, 10).reverse()
-  const names = top10.map(p => p.publisher)
-  const counts = top10.map(p => p.count)
-
-  publisherChart.setOption({
+  const top10 = [...(publisherData.value || [])].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 10).reverse()
+  const names = top10.map(p => p.publisher || '未知')
+  const counts = top10.map(p => p.count || 0)
+  debugLog('renderPublisherChart data:', { names, counts })
+  safeSetOption(publisherChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '10%', bottom: '3%', top: '5%', containLabel: true },
     xAxis: {
@@ -203,19 +269,19 @@ const renderPublisherChart = () => {
       },
       barWidth: '60%',
       animationDuration: 1500,
-      animationEasing: 'quadOut'
+      animationEasing: 'quadraticOut' as any
     }]
-  })
+  }, 'publisherChart')
 }
 
 const renderConditionChart = () => {
   if (!conditionChart) return
-  const data = conditionData.value.map(c => ({
-    name: ConditionLabels[c.condition] || c.condition,
-    value: c.count
+  const data = (conditionData.value || []).map(c => ({
+    name: ConditionLabels[c.condition] || c.condition || '未知',
+    value: c.count || 0
   }))
-
-  conditionChart.setOption({
+  debugLog('renderConditionChart data:', data)
+  safeSetOption(conditionChart, {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'item', fontFamily: 'VT323', fontSize: 16 },
     legend: {
@@ -229,11 +295,7 @@ const renderConditionChart = () => {
       radius: ['40%', '70%'],
       center: ['50%', '40%'],
       avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 6,
-        borderColor: '#1A1A2E',
-        borderWidth: 3
-      },
+      itemStyle: { borderRadius: 6, borderColor: '#1A1A2E', borderWidth: 3 },
       label: { show: false },
       emphasis: {
         label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#FFD93D', fontFamily: 'Press Start 2P' },
@@ -244,16 +306,16 @@ const renderConditionChart = () => {
       animationDuration: 1500,
       animationEasing: 'bounceOut'
     }]
-  })
+  }, 'conditionChart')
 }
 
 const renderRatingChart = () => {
   if (!ratingChart) return
   const data = ratingData.value || []
   const labels = data.map(r => r.label || `${r.rating}星`)
-  const counts = data.map(r => r.count)
-
-  ratingChart.setOption({
+  const counts = data.map(r => r.count || 0)
+  debugLog('renderRatingChart data:', { labels, counts })
+  safeSetOption(ratingChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
     tooltip: { trigger: 'axis', fontFamily: 'VT323', fontSize: 16 },
@@ -292,16 +354,19 @@ const renderRatingChart = () => {
         data: [{ type: 'average', name: '平均' }]
       }
     }]
-  })
+  }, 'ratingChart')
 }
 
 const renderPlayTimeChart = () => {
   if (!playTimeChart) return
-  const topItems = [...playTimeTopData.value].reverse()
-  const names = topItems.map(item => item.title.length > 8 ? item.title.slice(0, 8) + '...' : item.title)
-  const hours = topItems.map(item => item.playTimeHours)
-
-  playTimeChart.setOption({
+  const topItems = [...(playTimeTopData.value || [])].reverse()
+  const names = topItems.map(item => {
+    const t = item.title || '未知'
+    return t.length > 8 ? t.slice(0, 8) + '...' : t
+  })
+  const hours = topItems.map(item => Number(item.playTimeHours) || 0)
+  debugLog('renderPlayTimeChart data:', { names, hours })
+  safeSetOption(playTimeChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '12%', bottom: '3%', top: '5%', containLabel: true },
     tooltip: {
@@ -309,9 +374,11 @@ const renderPlayTimeChart = () => {
       fontFamily: 'VT323',
       fontSize: 16,
       formatter: (params: any) => {
-        const idx = params[0].dataIndex
+        const idx = params[0]?.dataIndex
+        if (idx == null) return ''
         const item = topItems[idx]
-        return `<strong>${item.title}</strong><br/>平台: ${item.platform}<br/>时长: ${item.playTimeHours}h<br/>通关: ${item.completionDate || '未知'}`
+        if (!item) return ''
+        return `<strong>${item.title}</strong><br/>平台: ${item.platform || '未知'}<br/>时长: ${item.playTimeHours || 0}h<br/>通关: ${item.completionDate || '未知'}`
       }
     },
     xAxis: {
@@ -349,19 +416,19 @@ const renderPlayTimeChart = () => {
       },
       barWidth: '60%',
       animationDuration: 1500,
-      animationEasing: 'quadOut'
+      animationEasing: 'quadraticOut' as any
     }]
-  })
+  }, 'playTimeChart')
 }
 
 const renderDifficultyChart = () => {
   if (!difficultyChart) return
   const data = difficultyData.value || []
-  const labels = data.map(d => d.label)
-  const counts = data.map(d => d.count)
-  const avgHours = data.map(d => d.avgPlayTimeHours)
-
-  difficultyChart.setOption({
+  const labels = data.map(d => d.label || `难度${d.difficulty}`)
+  const counts = data.map(d => d.count || 0)
+  const avgHours = data.map(d => Number(d.avgPlayTimeHours) || 0)
+  debugLog('renderDifficultyChart data:', { labels, counts, avgHours })
+  safeSetOption(difficultyChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '4%', bottom: '3%', top: '12%', containLabel: true },
     tooltip: { trigger: 'axis', fontFamily: 'VT323', fontSize: 16 },
@@ -428,24 +495,24 @@ const renderDifficultyChart = () => {
         animationDuration: 1500
       }
     ]
-  })
+  }, 'difficultyChart')
 }
 
 const renderValueTrendChart = () => {
   if (!valueTrendChart) return
   const data = valueTrendData.value || []
   const dates = data.map(d => d.date)
-  const cumulative = data.map(d => d.cumulative)
-  const monthly = data.map(d => d.value)
-
-  valueTrendChart.setOption({
+  const cumulative = data.map(d => Number(d.cumulative) || 0)
+  const monthly = data.map(d => Number(d.value) || 0)
+  debugLog('renderValueTrendChart data:', { dates, cumulative, monthly })
+  safeSetOption(valueTrendChart, {
     backgroundColor: 'transparent',
     grid: { left: '3%', right: '4%', bottom: '8%', top: '12%', containLabel: true },
     tooltip: {
       trigger: 'axis',
       fontFamily: 'VT323',
       fontSize: 16,
-      valueFormatter: (val: number) => `¥${val.toFixed(2)}`
+      valueFormatter: (val: any) => `¥${Number(val).toFixed(2)}`
     },
     legend: {
       data: ['累计投入', '月度投入'],
@@ -503,14 +570,17 @@ const renderValueTrendChart = () => {
         animationDuration: 1500
       }
     ]
-  })
+  }, 'valueTrendChart')
 }
 
 const renderRegionChart = () => {
   if (!regionChart) return
-  const data = regionData.value.map(r => ({ name: r.label || r.region, value: r.count }))
-
-  regionChart.setOption({
+  const data = (regionData.value || []).map(r => ({
+    name: r.label || r.region || '未知',
+    value: r.count || 0
+  }))
+  debugLog('renderRegionChart data:', data)
+  safeSetOption(regionChart, {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
@@ -531,11 +601,7 @@ const renderRegionChart = () => {
       radius: ['30%', '65%'],
       center: ['35%', '50%'],
       roseType: 'radius',
-      itemStyle: {
-        borderRadius: 4,
-        borderColor: '#1A1A2E',
-        borderWidth: 3
-      },
+      itemStyle: { borderRadius: 4, borderColor: '#1A1A2E', borderWidth: 3 },
       label: {
         show: true,
         color: '#E8E8E8',
@@ -553,20 +619,23 @@ const renderRegionChart = () => {
       animationDuration: 1500,
       animationEasing: 'bounceOut'
     }]
-  })
+  }, 'regionChart')
 }
 
 const renderCompletionChart = () => {
-  if (!completionChart || !completionRate.value) return
-  const data = completionRate.value
+  if (!completionChart) return
+  const data = completionRate.value || {
+    totalCartridges: 0, completedCartridges: 0, rate: 0,
+    playingCount: 0, unstartedCount: 0, shelvedCount: 0
+  }
   const pieData = [
-    { value: data.completedCartridges, name: '已通关', itemStyle: { color: '#6BCB77' } },
-    { value: data.playingCount, name: '进行中', itemStyle: { color: '#FFD93D' } },
-    { value: data.unstartedCount, name: '未开始', itemStyle: { color: '#00F0FF' } },
-    { value: data.shelvedCount, name: '搁置', itemStyle: { color: '#FF8C42' } }
+    { value: data.completedCartridges || 0, name: '已通关', itemStyle: { color: '#6BCB77' } },
+    { value: data.playingCount || 0, name: '进行中', itemStyle: { color: '#FFD93D' } },
+    { value: data.unstartedCount || 0, name: '未开始', itemStyle: { color: '#00F0FF' } },
+    { value: data.shelvedCount || 0, name: '搁置', itemStyle: { color: '#FF8C42' } }
   ]
-
-  completionChart.setOption({
+  debugLog('renderCompletionChart data:', data)
+  safeSetOption(completionChart, {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
@@ -581,33 +650,20 @@ const renderCompletionChart = () => {
       itemHeight: 12
     },
     title: {
-      text: `${data.rate.toFixed(1)}%`,
+      text: `${(data.rate || 0).toFixed(1)}%`,
       subtext: '通关率',
       left: 'center',
       top: '38%',
       textAlign: 'center',
-      textStyle: {
-        color: '#FFD93D',
-        fontFamily: 'Press Start 2P',
-        fontSize: 28,
-        fontWeight: 'bold'
-      },
-      subtextStyle: {
-        color: '#E8E8E8',
-        fontFamily: 'Press Start 2P',
-        fontSize: 10
-      }
+      textStyle: { color: '#FFD93D', fontFamily: 'Press Start 2P', fontSize: 28, fontWeight: 'bold' },
+      subtextStyle: { color: '#E8E8E8', fontFamily: 'Press Start 2P', fontSize: 10 }
     },
     series: [{
       type: 'pie',
       radius: ['55%', '80%'],
       center: ['50%', '45%'],
       avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 6,
-        borderColor: '#1A1A2E',
-        borderWidth: 3
-      },
+      itemStyle: { borderRadius: 6, borderColor: '#1A1A2E', borderWidth: 3 },
       label: { show: false },
       emphasis: {
         label: { show: true, fontSize: 14, fontWeight: 'bold', color: '#FFD93D', fontFamily: 'Press Start 2P' },
@@ -617,26 +673,40 @@ const renderCompletionChart = () => {
       animationDuration: 1500,
       animationEasing: 'bounceOut'
     }]
-  })
+  }, 'completionChart')
 }
 
 const renderAllCharts = () => {
   nextTick(() => {
-    renderAnnualChart()
-    renderPlatformChart()
-    renderPublisherChart()
-    renderConditionChart()
-    renderRatingChart()
-    renderPlayTimeChart()
-    renderDifficultyChart()
-    renderValueTrendChart()
-    renderRegionChart()
-    renderCompletionChart()
+    try {
+      renderAnnualChart()
+      renderPlatformChart()
+      renderPublisherChart()
+      renderConditionChart()
+      renderRatingChart()
+      renderPlayTimeChart()
+      renderDifficultyChart()
+      renderValueTrendChart()
+      renderRegionChart()
+      renderCompletionChart()
+      debugLog('🎯 renderAllCharts() completed')
+    } catch (e) {
+      console.error('[Statistics] ❌ renderAllCharts failed:', e)
+    }
   })
+}
+
+const initAndRender = async () => {
+  await nextTick()
+  await nextTick()
+  debugLog('initAndRender: DOM should be ready now')
+  initCharts()
+  renderAllCharts()
 }
 
 const loadData = async () => {
   loading.value = true
+  debugLog('loadData: starting API requests...')
   try {
     const [
       ovRes, annualRes, platRes, pubRes, condRes,
@@ -654,43 +724,69 @@ const loadData = async () => {
       statisticsApi.getRegions(),
       statisticsApi.getCompletionRate()
     ])
+
+    debugLog('loadData: API responses received', {
+      overviewCode: ovRes.code,
+      overviewData: ovRes.data,
+      annualCode: annualRes.code,
+      annualLen: (annualRes.data || []).length,
+      platLen: (platRes.data || []).length,
+      ratingLen: (ratingRes.data || []).length,
+      playtimeLen: (playtimeRes.data || []).length,
+      regionData: regionRes.data,
+      compData: compRes.data
+    })
+
     if (ovRes.code === 0) overview.value = ovRes.data
-    if (annualRes.code === 0) monthlyData.value = annualRes.data
-    if (platRes.code === 0) platformData.value = platRes.data
-    if (pubRes.code === 0) publisherData.value = pubRes.data
-    if (condRes.code === 0) conditionData.value = condRes.data
-    if (ratingRes.code === 0) ratingData.value = ratingRes.data
-    if (playtimeRes.code === 0) playTimeTopData.value = playtimeRes.data
-    if (diffRes.code === 0) difficultyData.value = diffRes.data
-    if (valueRes.code === 0) valueTrendData.value = valueRes.data
-    if (regionRes.code === 0) regionData.value = regionRes.data
-    if (compRes.code === 0) completionRate.value = compRes.data
-    renderAllCharts()
+    if (annualRes.code === 0) monthlyData.value = annualRes.data || []
+    if (platRes.code === 0) platformData.value = platRes.data || []
+    if (pubRes.code === 0) publisherData.value = pubRes.data || []
+    if (condRes.code === 0) conditionData.value = condRes.data || []
+    if (ratingRes.code === 0) ratingData.value = ratingRes.data || []
+    if (playtimeRes.code === 0) playTimeTopData.value = playtimeRes.data || []
+    if (diffRes.code === 0) difficultyData.value = diffRes.data || []
+    if (valueRes.code === 0) valueTrendData.value = valueRes.data || []
+    if (regionRes.code === 0) regionData.value = regionRes.data || []
+    if (compRes.code === 0) completionRate.value = compRes.data || null
+  } catch (e) {
+    console.error('[Statistics] ❌ loadData API error:', e)
   } finally {
     loading.value = false
+    debugLog('loadData: loading=false, will trigger initAndRender via watcher')
   }
 }
 
 const handleResize = () => {
-  annualChart?.resize()
-  platformChart?.resize()
-  publisherChart?.resize()
-  conditionChart?.resize()
-  ratingChart?.resize()
-  playTimeChart?.resize()
-  difficultyChart?.resize()
-  valueTrendChart?.resize()
-  regionChart?.resize()
-  completionChart?.resize()
+  const all = [
+    annualChart, platformChart, publisherChart, conditionChart,
+    ratingChart, playTimeChart, difficultyChart, valueTrendChart,
+    regionChart, completionChart
+  ]
+  all.forEach(inst => {
+    try { inst?.resize() } catch (e) { /* noop */ }
+  })
 }
+
+watch(loading, (newVal, oldVal) => {
+  debugLog(`watch loading: ${oldVal} → ${newVal}`)
+  if (oldVal === true && newVal === false) {
+    initAndRender()
+  }
+})
 
 watch(selectedYear, loadData)
 
 onMounted(() => {
+  debugLog('onMounted: initializing...')
   initYears()
-  initCharts()
   loadData()
   window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  debugLog('onUnmounted: cleaning up')
+  window.removeEventListener('resize', handleResize)
+  disposeAllCharts()
 })
 </script>
 
