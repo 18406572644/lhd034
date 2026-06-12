@@ -4,6 +4,7 @@ import (
 	"cartridge-archive/database"
 	"cartridge-archive/routes"
 	"log"
+	"os"
 )
 
 func main() {
@@ -14,7 +15,12 @@ func main() {
 
 	r := routes.SetupRouter()
 
-	log.Println("Server running on http://localhost:8080")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server running on http://localhost:%s", port)
 	log.Println("API Documentation:")
 	log.Println("  GET    /api/health")
 	log.Println("  GET    /api/cartridges")
@@ -28,7 +34,7 @@ func main() {
 	log.Println("  GET    /api/borrows")
 	log.Println("  GET    /api/statistics/overview")
 
-	if err := r.Run(":8080"); err != nil {
+	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -13,12 +13,21 @@ import (
 var DB *gorm.DB
 
 func InitDB() {
-	dbDir := "./data"
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		log.Fatalf("Failed to create data directory: %v", err)
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbDir := "./data"
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			log.Fatalf("Failed to create data directory: %v", err)
+		}
+		dbPath = fmt.Sprintf("%s/cartridge_archive.db", dbDir)
+	} else {
+		dbDir := dbPath[:len(dbPath)-len("/cartridge_archive.db")]
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			log.Fatalf("Failed to create data directory: %v", err)
+		}
 	}
 
-	dsn := fmt.Sprintf("%s/cartridge_archive.db", dbDir)
+	dsn := dbPath
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {

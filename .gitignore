@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .vite
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+nginx.conf
+start.bat
+start.sh
+stop.bat
+stop.sh

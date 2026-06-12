@@ -15,8 +15,10 @@ import type {
   ConditionStat
 } from '@/types'
 
+const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 const request = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL,
   timeout: 10000
 })
 
