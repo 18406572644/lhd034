@@ -150,6 +150,49 @@ export interface ConditionStat {
   count: number
 }
 
+export interface RatingStat {
+  rating: number
+  count: number
+  label: string
+}
+
+export interface PlayTimeRankItem {
+  id: number
+  cartridgeId: number
+  title: string
+  platform: string
+  playTimeHours: number
+  completionDate: string
+}
+
+export interface DifficultyStat {
+  difficulty: 1 | 2 | 3 | 4 | 5
+  label: string
+  count: number
+  avgPlayTimeHours: number
+}
+
+export interface ValueTrendItem {
+  date: string
+  value: number
+  cumulative: number
+}
+
+export interface RegionStat {
+  region: string
+  count: number
+  label: string
+}
+
+export interface CompletionRate {
+  totalCartridges: number
+  completedCartridges: number
+  rate: number
+  playingCount: number
+  unstartedCount: number
+  shelvedCount: number
+}
+
 export const ConditionLabels: Record<string, string> = {
   mint: '全新',
   excellent: '优秀',

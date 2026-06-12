@@ -13,6 +13,12 @@ import type {
   PlatformStat,
   PublisherStat,
   ConditionStat,
+  RatingStat,
+  PlayTimeRankItem,
+  DifficultyStat,
+  ValueTrendItem,
+  RegionStat,
+  CompletionRate,
   BackupInfo,
   BackupConfig,
   PlayingSession,
@@ -201,6 +207,24 @@ export const statisticsApi = {
   },
   getConditions() {
     return api.get<ConditionStat[]>('/statistics/conditions')
+  },
+  getRatings() {
+    return api.get<RatingStat[]>('/statistics/ratings')
+  },
+  getPlayTimeTop10() {
+    return api.get<PlayTimeRankItem[]>('/statistics/playtime-top10')
+  },
+  getDifficulty() {
+    return api.get<DifficultyStat[]>('/statistics/difficulty')
+  },
+  getValueTrend() {
+    return api.get<ValueTrendItem[]>('/statistics/value-trend')
+  },
+  getRegions() {
+    return api.get<RegionStat[]>('/statistics/regions')
+  },
+  getCompletionRate() {
+    return api.get<CompletionRate>('/statistics/completion-rate')
   }
 }
 

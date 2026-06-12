@@ -90,6 +90,12 @@ func SetupRouter() *gin.Engine {
 			statistics.GET("/platforms", statsCtrl.GetPlatforms)
 			statistics.GET("/publishers", statsCtrl.GetPublishers)
 			statistics.GET("/conditions", statsCtrl.GetConditions)
+			statistics.GET("/ratings", statsCtrl.GetRatingDistribution)
+			statistics.GET("/playtime-top10", statsCtrl.GetPlayTimeTop10)
+			statistics.GET("/difficulty", statsCtrl.GetDifficultyAnalysis)
+			statistics.GET("/value-trend", statsCtrl.GetValueTrend)
+			statistics.GET("/regions", statsCtrl.GetRegionDistribution)
+			statistics.GET("/completion-rate", statsCtrl.GetCompletionRate)
 		}
 
 		sessions := api.Group("/sessions")
