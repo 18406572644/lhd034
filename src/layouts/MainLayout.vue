@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import CommandPalette from '@/components/CommandPalette.vue'
+import { useCommandPalette } from '@/composables/useCommandPalette'
 
 const route = useRoute()
 const router = useRouter()
+const { open: openCommandPalette } = useCommandPalette()
 
 const collapsed = ref(false)
 
@@ -97,6 +100,14 @@ const sidebarWidth = computed(() => collapsed.value ? '0px' : '240px')
         </div>
 
         <div class="flex items-center gap-4">
+          <button
+            class="cmd-trigger flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all duration-200 hover:glow-blue"
+            @click="openCommandPalette"
+          >
+            <span class="text-lg">🔍</span>
+            <span class="pixel-font text-[10px] text-text-secondary hidden sm:inline">搜索</span>
+            <kbd class="cmd-trigger-kbd pixel-font text-[8px] px-1.5 py-0.5">⌘K</kbd>
+          </button>
           <span class="pixel-badge">
             {{ route.path }}
           </span>
@@ -113,6 +124,8 @@ const sidebarWidth = computed(() => collapsed.value ? '0px' : '240px')
       class="fixed inset-0 bg-black/50 z-20 lg:hidden"
       @click="toggleSidebar"
     />
+
+    <CommandPalette />
   </div>
 </template>
 
@@ -138,6 +151,23 @@ const sidebarWidth = computed(() => collapsed.value ? '0px' : '240px')
 }
 
 .text-text-secondary {
+  color: var(--text-secondary);
+}
+
+.cmd-trigger {
+  background: var(--dark-bg-3);
+  border: 2px solid var(--neon-blue);
+  color: var(--text-primary);
+}
+
+.cmd-trigger:hover {
+  background: var(--dark-bg-2);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.cmd-trigger-kbd {
+  background: var(--dark-bg);
+  border: 1px solid rgba(0, 240, 255, 0.4);
   color: var(--text-secondary);
 }
 </style>
