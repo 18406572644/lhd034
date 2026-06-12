@@ -13,6 +13,8 @@ const collapsed = ref(false)
 const menuItems = [
   { path: '/', name: '仪表盘', icon: '🎮' },
   { path: '/cartridges', name: '卡带档案', icon: '📚' },
+  { path: '/labels/batch', name: '标签打印', icon: '🏷️' },
+  { path: '/scanner', name: '扫码定位', icon: '📱' },
   { path: '/playthroughs', name: '通关记录', icon: '🏆' },
   { path: '/progress', name: '进度追踪', icon: '📊' },
   { path: '/wishlist', name: '待玩清单', icon: '⭐' },

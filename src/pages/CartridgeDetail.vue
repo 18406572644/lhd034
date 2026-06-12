@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal, Tabs, TabPane } from '@arco-design/web-vue'
 import { cartridgeApi, borrowApi, wishlistApi, sessionApi, playthroughApi } from '@/api'
 import { ConditionLabels, StatusLabels, PlayStatusLabels, PlayStatusBadgeClass } from '@/types'
 import type { Cartridge, Playthrough, Review, BorrowRecord, PlayingSession } from '@/types'
+import QRCodeLabel from '@/components/QRCodeLabel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +20,7 @@ const deleteConfirmVisible = ref(false)
 const sessionDialog = ref(false)
 const statusDialog = ref(false)
 const selectedStatus = ref<'unstarted' | 'playing' | 'completed' | 'shelved'>('unstarted')
+const qrLabelDialog = ref(false)
 
 const id = Number(route.params.id)
 
@@ -194,6 +196,48 @@ const setStatus = (key: string) => {
   selectedStatus.value = key as typeof selectedStatus.value
 }
 
+const openQRLabelDialog = () => {
+  qrLabelDialog.value = true
+}
+
+const printSingleLabel = async () => {
+  await nextTick()
+  const printContent = document.getElementById('single-label-print-area')
+  if (!printContent) return
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    Message.error('无法打开打印窗口，请检查浏览器设置')
+    return
+  }
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>打印标签 - ${cartridge.value?.title || '卡带'}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Courier New', monospace; }
+        .print-container { padding: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="print-container">
+        ${printContent.innerHTML}
+      </div>
+      <script>
+        window.onload = function() {
+          setTimeout(() => {
+            window.print();
+            window.close();
+          }, 500);
+        };
+      <\/script>
+    </body>
+    </html>
+  `)
+  printWindow.document.close()
+}
+
 onMounted(loadData)
 </script>
 
@@ -215,6 +259,7 @@ onMounted(loadData)
         <div class="flex flex-wrap gap-3">
           <button class="pixel-btn" @click="router.push(`/cartridges/${id}/edit`)">✏️ 编辑</button>
           <button class="pixel-btn" @click="openStatusDialog">🏷️ 修改状态</button>
+          <button class="pixel-btn pixel-btn-success" @click="openQRLabelDialog">📱 二维码标签</button>
           <button class="pixel-btn pixel-btn-primary" @click="openSessionDialog">➕ 记录会话</button>
           <button class="pixel-btn pixel-btn-danger" @click="handleDelete">🗑️ 删除</button>
           <button class="pixel-btn pixel-btn-success" @click="handleAddPlaythrough">🎮 通关记录</button>
@@ -519,6 +564,47 @@ onMounted(loadData)
         <div class="flex gap-4 justify-end">
           <button class="pixel-btn" @click="statusDialog = false">取消</button>
           <button class="pixel-btn pixel-btn-primary" @click="saveStatus">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="qrLabelDialog && cartridge"
+      class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click.self="qrLabelDialog = false"
+    >
+      <div class="pixel-card p-6 max-w-lg w-full mx-4">
+        <h3 class="text-bright-yellow mb-4">二维码标签</h3>
+        <p class="text-text-secondary text-sm mb-4">
+          扫描此二维码可快速定位到卡带详情页。标签包含：二维码、游戏名称、平台、品相信息。
+        </p>
+
+        <div class="flex justify-center mb-6">
+          <div id="single-label-print-area">
+            <QRCodeLabel
+              :cartridge="cartridge"
+              size="large"
+              :show-title="true"
+              :for-print="false"
+              @print="printSingleLabel"
+            />
+          </div>
+        </div>
+
+        <div class="flex gap-4 justify-end">
+          <button class="pixel-btn" @click="qrLabelDialog = false">关闭</button>
+          <button
+            class="pixel-btn pixel-btn-primary"
+            @click="printSingleLabel"
+          >
+            🖨️ 打印标签
+          </button>
+          <button
+            class="pixel-btn pixel-btn-success"
+            @click="router.push('/labels/batch'); qrLabelDialog = false;"
+          >
+            📄 批量打印
+          </button>
         </div>
       </div>
     </div>
