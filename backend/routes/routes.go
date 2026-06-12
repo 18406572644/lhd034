@@ -90,6 +90,17 @@ func SetupRouter() *gin.Engine {
 			statistics.GET("/publishers", statsCtrl.GetPublishers)
 			statistics.GET("/conditions", statsCtrl.GetConditions)
 		}
+
+		backups := api.Group("/backups")
+		{
+			backupCtrl := controllers.NewBackupController()
+			backups.GET("", backupCtrl.ListBackups)
+			backups.POST("", backupCtrl.CreateBackup)
+			backups.DELETE("/:filename", backupCtrl.DeleteBackup)
+			backups.POST("/:filename/restore", backupCtrl.RestoreBackup)
+			backups.GET("/config", backupCtrl.GetConfig)
+			backups.PUT("/config", backupCtrl.UpdateConfig)
+		}
 	}
 
 	return r

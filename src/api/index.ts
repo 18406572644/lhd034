@@ -12,7 +12,9 @@ import type {
   MonthlyData,
   PlatformStat,
   PublisherStat,
-  ConditionStat
+  ConditionStat,
+  BackupInfo,
+  BackupConfig
 } from '@/types'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -168,5 +170,26 @@ export const statisticsApi = {
   },
   getConditions() {
     return api.get<ConditionStat[]>('/statistics/conditions')
+  }
+}
+
+export const backupApi = {
+  getList() {
+    return api.get<BackupInfo[]>('/backups')
+  },
+  createBackup() {
+    return api.post<BackupInfo>('/backups')
+  },
+  deleteBackup(filename: string) {
+    return api.delete(`/backups/${filename}`)
+  },
+  restoreBackup(filename: string) {
+    return api.post<{ message: string; snapshotFilename: string }>(`/backups/${filename}/restore`)
+  },
+  getConfig() {
+    return api.get<BackupConfig>('/backups/config')
+  },
+  updateConfig(config: Partial<BackupConfig>) {
+    return api.put<BackupConfig>('/backups/config', config)
   }
 }

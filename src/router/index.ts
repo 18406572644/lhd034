@@ -19,7 +19,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'wishlist', name: 'wishlist', component: () => import('@/pages/Wishlist.vue') },
       { path: 'showcase', name: 'showcase', component: () => import('@/pages/Showcase.vue') },
       { path: 'statistics', name: 'statistics', component: () => import('@/pages/Statistics.vue') },
-      { path: 'borrows', name: 'borrows', component: () => import('@/pages/BorrowList.vue') }
+      { path: 'borrows', name: 'borrows', component: () => import('@/pages/BorrowList.vue') },
+      { path: 'settings', name: 'settings', component: () => import('@/pages/BackupSettings.vue') }
     ]
   }
 ]

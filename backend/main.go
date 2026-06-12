@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cartridge-archive/controllers"
 	"cartridge-archive/database"
 	"cartridge-archive/routes"
 	"log"
@@ -12,6 +13,9 @@ func main() {
 
 	database.InitDB()
 	log.Println("Database initialized")
+
+	controllers.StartBackupScheduler()
+	log.Println("Backup scheduler initialized")
 
 	r := routes.SetupRouter()
 
@@ -33,6 +37,12 @@ func main() {
 	log.Println("  GET    /api/wishlist")
 	log.Println("  GET    /api/borrows")
 	log.Println("  GET    /api/statistics/overview")
+	log.Println("  GET    /api/backups")
+	log.Println("  POST   /api/backups")
+	log.Println("  DELETE /api/backups/:filename")
+	log.Println("  POST   /api/backups/:filename/restore")
+	log.Println("  GET    /api/backups/config")
+	log.Println("  PUT    /api/backups/config")
 
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

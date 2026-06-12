@@ -35,3 +35,9 @@ start.bat
 start.sh
 stop.bat
 stop.sh
+
+# Backups
+backups/
+*.db-journal
+*.db-wal
+*.db-shm

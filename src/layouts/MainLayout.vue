@@ -15,7 +15,8 @@ const menuItems = [
   { path: '/wishlist', name: '待玩清单', icon: '⭐' },
   { path: '/showcase', name: '虚拟展柜', icon: '🖼️' },
   { path: '/statistics', name: '统计分析', icon: '📈' },
-  { path: '/borrows', name: '借还管理', icon: '🔄' }
+  { path: '/borrows', name: '借还管理', icon: '🔄' },
+  { path: '/settings', name: '备份设置', icon: '⚙️' }
 ]
 
 const isActive = (path: string) => {

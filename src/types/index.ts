@@ -165,3 +165,21 @@ export const PriorityOptions = [
 export const EndingTypeOptions = [
   '标准结局', '好结局', '坏结局', '真结局', 'A结局', 'B结局', 'C结局', '隐藏结局', '其他'
 ]
+
+export interface BackupInfo {
+  filename: string
+  size: number
+  createdAt: string
+}
+
+export interface BackupConfig {
+  enabled: boolean
+  frequency: 'daily' | 'weekly' | 'monthly'
+  retention: number
+}
+
+export const FrequencyLabels: Record<string, string> = {
+  daily: '每日',
+  weekly: '每周',
+  monthly: '每月'
+}
