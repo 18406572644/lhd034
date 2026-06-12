@@ -52,14 +52,17 @@ const hasPlaythroughs = (cartridge: Cartridge) => {
   return cartridge.playthroughs && cartridge.playthroughs.length > 0
 }
 
-const getCurrentProgress = (cartridge: Cartridge) => {
-  if (!cartridge.sessions || cartridge.sessions.length === 0) return 0
-  return Math.max(...cartridge.sessions.map(s => s.progressPercent))
+const getCurrentProgress = (cartridge: Cartridge | null | undefined) => {
+  if (!cartridge || !cartridge.sessions || cartridge.sessions.length === 0) return 0
+  const percents = cartridge.sessions.map(s => s?.progressPercent ?? 0)
+  if (percents.length === 0) return 0
+  return Math.max(...percents)
 }
 
 const openStatusDialog = (cartridge: Cartridge) => {
+  if (!cartridge) return
   statusTarget.value = cartridge
-  selectedStatus.value = cartridge.status || 'unstarted'
+  selectedStatus.value = (cartridge.status || 'unstarted') as typeof selectedStatus.value
   statusDialog.value = true
 }
 
@@ -80,12 +83,13 @@ const setStatus = (key: string) => {
 }
 
 const openNewSessionDialog = async (cartridge: Cartridge) => {
+  if (!cartridge) return
   newSessionTarget.value = cartridge
   newSessionForm.sessionDate = new Date().toISOString().split('T')[0]
   newSessionForm.durationMinutes = 60
   try {
     const progress = await cartridgeApi.getProgress(cartridge.id)
-    newSessionForm.progressPercent = progress.data.currentProgress
+    newSessionForm.progressPercent = progress?.data?.currentProgress ?? getCurrentProgress(cartridge)
   } catch {
     newSessionForm.progressPercent = getCurrentProgress(cartridge)
   }
@@ -268,15 +272,15 @@ onMounted(async () => {
     <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       <div
         v-for="cartridge in store.cartridges"
-        :key="cartridge.id"
+        :key="cartridge?.id ?? Math.random()"
         class="relative group"
       >
-        <div class="cartridge-case cursor-pointer" @click="router.push(`/cartridges/${cartridge.id}`)">
+        <div class="cartridge-case cursor-pointer" @click="router.push(`/cartridges/${cartridge?.id}`)">
           <div class="cartridge-label">
-            <img v-if="cartridge.coverImage" :src="cartridge.coverImage" :alt="cartridge.title" />
+            <img v-if="cartridge?.coverImage" :src="cartridge.coverImage" :alt="cartridge?.title || '卡带封面'" />
             <div v-else class="flex flex-col items-center justify-center h-full">
-              <div class="text-xs pixel-font text-bright-yellow leading-relaxed">{{ cartridge.title }}</div>
-              <div class="text-xs text-neon-blue mt-1">{{ cartridge.platform }}</div>
+              <div class="text-xs pixel-font text-bright-yellow leading-relaxed">{{ cartridge?.title || '未知游戏' }}</div>
+              <div class="text-xs text-neon-blue mt-1">{{ cartridge?.platform || '—' }}</div>
             </div>
           </div>
         </div>
@@ -299,14 +303,14 @@ onMounted(async () => {
           <button
             class="pixel-btn !p-2 !text-xs"
             title="编辑"
-            @click.stop="router.push(`/cartridges/${cartridge.id}/edit`)"
+            @click.stop="router.push(`/cartridges/${cartridge?.id}/edit`)"
           >
             ✏️
           </button>
           <button
             class="pixel-btn pixel-btn-danger !p-2 !text-xs"
             title="删除"
-            @click.stop="deleteConfirmId = cartridge.id"
+            @click.stop="deleteConfirmId = cartridge?.id ?? null"
           >
             🗑️
           </button>
@@ -314,16 +318,16 @@ onMounted(async () => {
 
         <div class="mt-3 space-y-2">
           <div class="flex items-start justify-between gap-2">
-            <h4 class="pixel-font text-bright-yellow text-xs leading-tight truncate">{{ cartridge.title }}</h4>
+            <h4 class="pixel-font text-bright-yellow text-xs leading-tight truncate">{{ cartridge?.title || '未知游戏' }}</h4>
             <span
               class="pixel-badge !text-[8px] shrink-0"
-              :class="PlayStatusBadgeClass[cartridge.status || 'unstarted']"
+              :class="PlayStatusBadgeClass[cartridge?.status || 'unstarted']"
             >
-              {{ PlayStatusLabels[cartridge.status || 'unstarted'] }}
+              {{ PlayStatusLabels[cartridge?.status || 'unstarted'] }}
             </span>
           </div>
           <div
-            v-if="cartridge.status === 'playing' && getCurrentProgress(cartridge) > 0"
+            v-if="cartridge?.status === 'playing' && getCurrentProgress(cartridge) > 0"
             class="pixel-progress !h-2"
           >
             <div
@@ -332,14 +336,14 @@ onMounted(async () => {
             ></div>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="pixel-badge !text-[8px]">{{ cartridge.platform }}</span>
-            <span class="pixel-badge !text-[8px]" :class="conditionBadgeClass(cartridge.condition)">
-              {{ ConditionLabels[cartridge.condition] }}
+            <span class="pixel-badge !text-[8px]">{{ cartridge?.platform || '—' }}</span>
+            <span class="pixel-badge !text-[8px]" :class="conditionBadgeClass(cartridge?.condition || 'good')">
+              {{ ConditionLabels[cartridge?.condition || 'good'] }}
             </span>
           </div>
           <div class="flex items-center justify-between text-sm text-text-secondary">
-            <span>📅 {{ cartridge.releaseYear }}</span>
-            <span>💰 ¥{{ cartridge.purchasePrice }}</span>
+            <span>📅 {{ cartridge?.releaseYear ?? '—' }}</span>
+            <span>💰 ¥{{ cartridge?.purchasePrice ?? 0 }}</span>
           </div>
         </div>
       </div>

@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { sessionApi, playthroughApi, cartridgeApi } from '@/api'
-import type { PlayingCartridgeProgress, PlayingSession, Cartridge } from '@/types'
+import type { PlayingCartridgeProgress, PlayingSession } from '@/types'
 
 const router = useRouter()
 const loading = ref(false)
 const playingList = ref<PlayingCartridgeProgress[]>([])
-const cartridges = ref<Cartridge[]>([])
 
 const sessionDialog = ref(false)
 const selectedCartridge = ref<PlayingCartridgeProgress | null>(null)
@@ -23,20 +22,30 @@ const sessionForm = reactive({
   notes: ''
 })
 
-const formatDate = (d: string) => {
+const safeData = <T>(res: { data?: T } | null | undefined, fallback: T): T => {
+  if (res && res.data !== undefined && res.data !== null) {
+    return res.data
+  }
+  return fallback
+}
+
+const formatDate = (d: string | null | undefined) => {
+  if (!d) return '—'
   const dt = new Date(d)
+  if (isNaN(dt.getTime())) return '—'
   return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`
 }
 
-const formatDuration = (minutes: number) => {
+const formatDuration = (minutes: number | null | undefined) => {
+  if (minutes === null || minutes === undefined || isNaN(minutes)) return '0分钟'
   if (minutes < 60) return `${minutes}分钟`
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`
 }
 
-const formatRemaining = (minutes: number | null) => {
-  if (minutes === null || minutes === undefined) return '未知'
+const formatRemaining = (minutes: number | null | undefined) => {
+  if (minutes === null || minutes === undefined || isNaN(minutes)) return '未知'
   const hours = minutes / 60
   if (hours < 1) return `约${Math.round(minutes)}分钟`
   if (hours < 24) return `约${hours.toFixed(1)}小时`
@@ -47,30 +56,31 @@ const formatRemaining = (minutes: number | null) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [playRes, cartRes] = await Promise.all([
-      sessionApi.getPlaying(),
-      cartridgeApi.getList({ pageSize: 100 })
+    const [playRes] = await Promise.all([
+      sessionApi.getPlaying()
     ])
-    playingList.value = playRes.data
-    cartridges.value = cartRes.data.items
+    playingList.value = safeData<PlayingCartridgeProgress[]>(playRes, [])
   } catch (e) {
     console.error('加载数据失败', e)
+    playingList.value = []
+    Message.error('加载进度数据失败，请稍后重试')
   } finally {
     loading.value = false
   }
 }
 
 const openSessionDialog = (item: PlayingCartridgeProgress) => {
+  if (!item) return
   selectedCartridge.value = item
   sessionForm.sessionDate = new Date().toISOString().split('T')[0]
   sessionForm.durationMinutes = 60
-  sessionForm.progressPercent = item.currentProgress
+  sessionForm.progressPercent = item.currentProgress ?? 0
   sessionForm.notes = ''
   sessionDialog.value = true
 }
 
 const saveSession = async () => {
-  if (!selectedCartridge.value) return
+  if (!selectedCartridge.value || !selectedCartridge.value.cartridge) return
   try {
     await sessionApi.create({
       cartridgeId: selectedCartridge.value.cartridge.id,
@@ -83,24 +93,28 @@ const saveSession = async () => {
     sessionDialog.value = false
     loadData()
   } catch (e) {
+    console.error('保存会话失败', e)
     Message.error('保存失败')
   }
 }
 
 const openTimeline = async (item: PlayingCartridgeProgress) => {
+  if (!item || !item.cartridge) return
   timelineCartridge.value = item
   try {
     const res = await sessionApi.getList({ cartridgeId: item.cartridge.id })
-    timelineSessions.value = res.data
+    timelineSessions.value = safeData<PlayingSession[]>(res, [])
     timelineDialog.value = true
   } catch (e) {
+    console.error('加载会话记录失败', e)
     Message.error('加载会话记录失败')
   }
 }
 
 const markComplete = async (item: PlayingCartridgeProgress) => {
+  if (!item || !item.cartridge) return
   try {
-    const totalHours = item.totalMinutes / 60
+    const totalHours = (item.totalMinutes || 0) / 60
     await playthroughApi.create({
       cartridgeId: item.cartridge.id,
       startDate: item.latestSession?.sessionDate || new Date().toISOString().split('T')[0],
@@ -122,11 +136,13 @@ const markComplete = async (item: PlayingCartridgeProgress) => {
 }
 
 const markShelved = async (item: PlayingCartridgeProgress) => {
+  if (!item || !item.cartridge) return
   try {
     await cartridgeApi.update(item.cartridge.id, { status: 'shelved' })
     Message.success('已标记为搁置')
     loadData()
   } catch (e) {
+    console.error('标记搁置失败', e)
     Message.error('操作失败')
   }
 }
@@ -154,7 +170,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-else-if="playingList.length === 0" class="text-center py-16">
+    <div v-else-if="!playingList || playingList.length === 0" class="text-center py-16">
       <div class="text-6xl mb-4">🎮</div>
       <h3 class="text-bright-yellow mb-2">暂无正在游玩的游戏</h3>
       <p class="text-text-secondary mb-6">从卡带列表中选择一款游戏开始你的冒险吧！</p>
@@ -164,44 +180,48 @@ onMounted(loadData)
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div v-for="item in playingList" :key="item.cartridge.id" class="pixel-card p-4">
+      <div
+        v-for="item in playingList"
+        :key="item?.cartridge?.id ?? Math.random()"
+        class="pixel-card p-4"
+      >
         <div class="flex justify-between items-start mb-3">
           <div>
             <h4 class="pixel-font text-bright-yellow text-sm mb-1">
-              {{ item.cartridge.title }}
+              {{ item?.cartridge?.title || '未知游戏' }}
             </h4>
             <span class="pixel-badge !text-[10px] pixel-badge-warning">
               进行中
             </span>
           </div>
           <span class="pixel-font text-neon-blue text-lg">
-            {{ item.currentProgress }}%
+            {{ item?.currentProgress ?? 0 }}%
           </span>
         </div>
 
         <div class="pixel-progress mb-3">
           <div
             class="pixel-progress-bar"
-            :style="{ width: `${item.currentProgress}%` }"
+            :style="{ width: `${Math.min(100, Math.max(0, item?.currentProgress ?? 0))}%` }"
           ></div>
         </div>
 
         <div class="space-y-2 text-sm">
           <div class="flex items-center gap-2">
             <span class="text-text-secondary">📅</span>
-            <span>上次游玩: {{ item.latestSession ? formatDate(item.latestSession.sessionDate) : '—' }}</span>
+            <span>上次游玩: {{ formatDate(item?.latestSession?.sessionDate) }}</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-text-secondary">⏱️</span>
-            <span>已游玩: {{ formatDuration(item.totalMinutes) }} ({{ item.totalSessions }}次)</span>
+            <span>已游玩: {{ formatDuration(item?.totalMinutes) }} ({{ item?.totalSessions ?? 0 }}次)</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-text-secondary">🔮</span>
-            <span>预计剩余: {{ formatRemaining(item.estimatedRemaining) }}</span>
+            <span>预计剩余: {{ formatRemaining(item?.estimatedRemaining) }}</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-text-secondary">📝</span>
-            <span v-if="item.latestSession?.notes">{{ item.latestSession.notes }}</span>
+            <span v-if="item?.latestSession?.notes">{{ item.latestSession.notes }}</span>
             <span v-else class="text-text-secondary">暂无备注</span>
           </div>
         </div>
@@ -285,40 +305,40 @@ onMounted(loadData)
       <div class="pixel-card p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-bright-yellow">
-            {{ timelineCartridge?.cartridge.title }} - 游玩时间轴
+            {{ timelineCartridge?.cartridge?.title || '未知游戏' }} - 游玩时间轴
           </h3>
           <button class="pixel-btn !py-2 !px-3 !text-xs" @click="timelineDialog = false">
             ✕
           </button>
         </div>
 
-        <div v-if="timelineSessions.length === 0" class="text-center py-8 text-text-secondary">
+        <div v-if="!timelineSessions || timelineSessions.length === 0" class="text-center py-8 text-text-secondary">
           暂无游玩会话记录
         </div>
 
         <div v-else class="space-y-4 overflow-y-auto scroll-hidden pr-2">
           <div
             v-for="(session, idx) in timelineSessions"
-            :key="session.id"
+            :key="session?.id ?? idx"
             class="timeline-item pb-4"
           >
             <div class="flex items-center justify-between mb-2">
               <span class="pixel-font text-neon-blue text-sm">
-                第 {{ timelineSessions.length - idx }} 次游玩
+                第 {{ (timelineSessions?.length ?? 0) - idx }} 次游玩
               </span>
-              <span class="text-text-secondary text-sm">{{ formatDate(session.sessionDate) }}</span>
+              <span class="text-text-secondary text-sm">{{ formatDate(session?.sessionDate) }}</span>
             </div>
             <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-              <div>⏱️ 时长: {{ formatDuration(session.durationMinutes) }}</div>
-              <div>📊 进度: {{ session.progressPercent }}%</div>
+              <div>⏱️ 时长: {{ formatDuration(session?.durationMinutes) }}</div>
+              <div>📊 进度: {{ session?.progressPercent ?? 0 }}%</div>
             </div>
             <div class="pixel-progress !h-3 mb-2">
               <div
                 class="pixel-progress-bar"
-                :style="{ width: `${session.progressPercent}%` }"
+                :style="{ width: `${Math.min(100, Math.max(0, session?.progressPercent ?? 0))}%` }"
               ></div>
             </div>
-            <div v-if="session.notes" class="text-text-secondary text-sm">
+            <div v-if="session?.notes" class="text-text-secondary text-sm">
               📝 {{ session.notes }}
             </div>
           </div>

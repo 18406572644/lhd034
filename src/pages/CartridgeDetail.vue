@@ -57,12 +57,13 @@ const renderStars = (rating: number) => {
   return stars.join('')
 }
 
-const formatDate = (dateStr: string | null) => {
+const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return '—'
   return dateStr.split('T')[0]
 }
 
-const formatDuration = (minutes: number) => {
+const formatDuration = (minutes: number | null | undefined) => {
+  if (minutes === null || minutes === undefined || isNaN(minutes)) return '0分钟'
   if (minutes < 60) return `${minutes}分钟`
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
@@ -71,7 +72,16 @@ const formatDuration = (minutes: number) => {
 
 const getCurrentProgress = () => {
   if (!sessions.value || sessions.value.length === 0) return 0
-  return Math.max(...sessions.value.map(s => s.progressPercent))
+  const percents = sessions.value.map(s => s?.progressPercent ?? 0)
+  if (percents.length === 0) return 0
+  return Math.max(...percents)
+}
+
+const safeData = <T>(res: { data?: T } | null | undefined, fallback: T): T => {
+  if (res && res.data !== undefined && res.data !== null) {
+    return res.data
+  }
+  return fallback
 }
 
 const loadData = async () => {
@@ -84,12 +94,18 @@ const loadData = async () => {
       borrowApi.getList({ cartridgeId: id }),
       cartridgeApi.getSessions(id)
     ])
-    cartridge.value = cartRes.data
-    playthroughs.value = playRes.data
-    review.value = reviewRes.data
-    borrowRecords.value = borrowRes.data
-    sessions.value = sessRes.data
+    cartridge.value = safeData<Cartridge | null>(cartRes, null)
+    playthroughs.value = safeData<Playthrough[]>(playRes, [])
+    review.value = safeData<Review | null>(reviewRes, null)
+    borrowRecords.value = safeData<BorrowRecord[]>(borrowRes, [])
+    sessions.value = safeData<PlayingSession[]>(sessRes, [])
   } catch (error) {
+    console.error('加载数据失败', error)
+    cartridge.value = null
+    playthroughs.value = []
+    review.value = null
+    borrowRecords.value = []
+    sessions.value = []
     Message.error('加载数据失败')
   } finally {
     loading.value = false
@@ -132,7 +148,7 @@ const openSessionDialog = async () => {
   sessionForm.durationMinutes = 60
   try {
     const progress = await cartridgeApi.getProgress(id)
-    sessionForm.progressPercent = progress.data.currentProgress
+    sessionForm.progressPercent = progress?.data?.currentProgress ?? getCurrentProgress()
   } catch {
     sessionForm.progressPercent = getCurrentProgress()
   }
@@ -153,12 +169,13 @@ const saveSession = async () => {
     sessionDialog.value = false
     loadData()
   } catch (e) {
+    console.error('保存会话失败', e)
     Message.error('保存失败')
   }
 }
 
 const openStatusDialog = () => {
-  selectedStatus.value = cartridge.value?.status || 'unstarted'
+  selectedStatus.value = (cartridge.value?.status || 'unstarted') as typeof selectedStatus.value
   statusDialog.value = true
 }
 
@@ -281,18 +298,18 @@ onMounted(loadData)
                   暂无通关记录
                 </div>
                 <div v-else class="space-y-4 max-h-96 overflow-y-auto scroll-hidden">
-                  <div v-for="p in playthroughs" :key="p.id" class="pixel-border p-4">
+                  <div v-for="p in playthroughs" :key="p?.id ?? Math.random()" class="pixel-border p-4">
                     <div class="flex justify-between items-center mb-2">
-                      <span class="pixel-font text-neon-blue">第 {{ p.id }} 次通关</span>
-                      <span class="text-text-secondary text-sm">{{ formatDate(p.completionDate) }}</span>
+                      <span class="pixel-font text-neon-blue">第 {{ p?.id ?? 0 }} 次通关</span>
+                      <span class="text-text-secondary text-sm">{{ formatDate(p?.completionDate) }}</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm">
-                      <div>开始: {{ formatDate(p.startDate) }}</div>
-                      <div>游戏时长: {{ p.playTimeHours }}h</div>
-                      <div>难度: {{ renderStars(p.difficultyRating) }}</div>
-                      <div>结局: {{ p.endingType }}</div>
+                      <div>开始: {{ formatDate(p?.startDate) }}</div>
+                      <div>游戏时长: {{ p?.playTimeHours ?? 0 }}h</div>
+                      <div>难度: {{ renderStars(p?.difficultyRating ?? 0) }}</div>
+                      <div>结局: {{ p?.endingType || '—' }}</div>
                     </div>
-                    <div v-if="p.notes" class="mt-2 text-text-secondary text-sm">{{ p.notes }}</div>
+                    <div v-if="p?.notes" class="mt-2 text-text-secondary text-sm">{{ p.notes }}</div>
                   </div>
                 </div>
               </TabPane>
@@ -309,26 +326,26 @@ onMounted(loadData)
                 <div v-else class="space-y-4 max-h-96 overflow-y-auto scroll-hidden pr-2">
                   <div
                     v-for="(s, idx) in sessions"
-                    :key="s.id"
+                    :key="s?.id ?? idx"
                     class="timeline-item pb-4"
                   >
                     <div class="flex justify-between items-center mb-2">
                       <span class="pixel-font text-neon-blue text-sm">
-                        第 {{ sessions.length - idx }} 次游玩
+                        第 {{ (sessions?.length ?? 0) - idx }} 次游玩
                       </span>
-                      <span class="text-text-secondary text-sm">{{ formatDate(s.sessionDate) }}</span>
+                      <span class="text-text-secondary text-sm">{{ formatDate(s?.sessionDate) }}</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-                      <div>⏱️ 时长: {{ formatDuration(s.durationMinutes) }}</div>
-                      <div>📊 进度: {{ s.progressPercent }}%</div>
+                      <div>⏱️ 时长: {{ formatDuration(s?.durationMinutes) }}</div>
+                      <div>📊 进度: {{ s?.progressPercent ?? 0 }}%</div>
                     </div>
                     <div class="pixel-progress !h-2 mb-2">
                       <div
                         class="pixel-progress-bar"
-                        :style="{ width: `${s.progressPercent}%` }"
+                        :style="{ width: `${Math.min(100, Math.max(0, s?.progressPercent ?? 0))}%` }"
                       ></div>
                     </div>
-                    <div v-if="s.notes" class="text-text-secondary text-sm">
+                    <div v-if="s?.notes" class="text-text-secondary text-sm">
                       📝 {{ s.notes }}
                     </div>
                   </div>
@@ -343,35 +360,35 @@ onMounted(loadData)
                   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div class="text-center">
                       <div class="text-text-secondary text-sm mb-1">内容</div>
-                      <div class="text-bright-yellow text-xl">{{ renderStars(review.contentRating) }}</div>
+                      <div class="text-bright-yellow text-xl">{{ renderStars(review?.contentRating ?? 0) }}</div>
                     </div>
                     <div class="text-center">
                       <div class="text-text-secondary text-sm mb-1">玩法</div>
-                      <div class="text-bright-yellow text-xl">{{ renderStars(review.gameplayRating) }}</div>
+                      <div class="text-bright-yellow text-xl">{{ renderStars(review?.gameplayRating ?? 0) }}</div>
                     </div>
                     <div class="text-center">
                       <div class="text-text-secondary text-sm mb-1">画面</div>
-                      <div class="text-bright-yellow text-xl">{{ renderStars(review.graphicsRating) }}</div>
+                      <div class="text-bright-yellow text-xl">{{ renderStars(review?.graphicsRating ?? 0) }}</div>
                     </div>
                     <div class="text-center">
                       <div class="text-text-secondary text-sm mb-1">音效</div>
-                      <div class="text-bright-yellow text-xl">{{ renderStars(review.soundRating) }}</div>
+                      <div class="text-bright-yellow text-xl">{{ renderStars(review?.soundRating ?? 0) }}</div>
                     </div>
                   </div>
                   <div class="text-center py-2">
                     <span class="pixel-badge pixel-badge-success !text-base !px-6 !py-2">
-                      综合评分: {{ review.overallRating.toFixed(1) }}
+                      综合评分: {{ (review?.overallRating ?? 0).toFixed(1) }}
                     </span>
                   </div>
-                  <div v-if="review.reviewText" class="pixel-border p-4">
+                  <div v-if="review?.reviewText" class="pixel-border p-4">
                     <span class="pixel-badge !text-[10px]">评价</span>
                     <p class="mt-2 text-text-secondary">{{ review.reviewText }}</p>
                   </div>
-                  <div v-if="review.storyNotes" class="pixel-border p-4">
+                  <div v-if="review?.storyNotes" class="pixel-border p-4">
                     <span class="pixel-badge !text-[10px]">剧情备注</span>
                     <p class="mt-2 text-text-secondary">{{ review.storyNotes }}</p>
                   </div>
-                  <div v-if="review.easterEggs && review.easterEggs.length > 0" class="pixel-border p-4">
+                  <div v-if="review?.easterEggs && review.easterEggs.length > 0" class="pixel-border p-4">
                     <span class="pixel-badge !text-[10px]">彩蛋记录</span>
                     <ul class="mt-2 space-y-1">
                       <li v-for="(egg, i) in review.easterEggs" :key="i" class="text-text-secondary">
@@ -383,24 +400,24 @@ onMounted(loadData)
               </TabPane>
 
               <TabPane title="借还记录" key="borrows">
-                <div v-if="borrowRecords.length === 0" class="text-center py-8 text-text-secondary">
+                <div v-if="!borrowRecords || borrowRecords.length === 0" class="text-center py-8 text-text-secondary">
                   暂无借还记录
                 </div>
                 <div v-else class="space-y-4 max-h-96 overflow-y-auto scroll-hidden">
-                  <div v-for="b in borrowRecords" :key="b.id" class="pixel-border p-4">
+                  <div v-for="b in borrowRecords" :key="b?.id ?? Math.random()" class="pixel-border p-4">
                     <div class="flex justify-between items-center mb-2">
-                      <span class="pixel-font text-neon-blue">{{ b.borrowerName }}</span>
-                      <span class="pixel-badge" :class="statusBadgeClass(b.status)">
-                        {{ StatusLabels[b.status] }}
+                      <span class="pixel-font text-neon-blue">{{ b?.borrowerName || '未知' }}</span>
+                      <span class="pixel-badge" :class="statusBadgeClass(b?.status || '')">
+                        {{ StatusLabels[b?.status || ''] || b?.status }}
                       </span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm">
-                      <div>借出: {{ formatDate(b.borrowDate) }}</div>
-                      <div>应还: {{ formatDate(b.expectedReturnDate) }}</div>
-                      <div v-if="b.actualReturnDate">实还: {{ formatDate(b.actualReturnDate) }}</div>
-                      <div v-if="b.borrowerContact">联系: {{ b.borrowerContact }}</div>
+                      <div>借出: {{ formatDate(b?.borrowDate) }}</div>
+                      <div>应还: {{ formatDate(b?.expectedReturnDate) }}</div>
+                      <div v-if="b?.actualReturnDate">实还: {{ formatDate(b?.actualReturnDate) }}</div>
+                      <div v-if="b?.borrowerContact">联系: {{ b.borrowerContact }}</div>
                     </div>
-                    <div v-if="b.notes" class="mt-2 text-text-secondary text-sm">{{ b.notes }}</div>
+                    <div v-if="b?.notes" class="mt-2 text-text-secondary text-sm">{{ b.notes }}</div>
                   </div>
                 </div>
               </TabPane>
