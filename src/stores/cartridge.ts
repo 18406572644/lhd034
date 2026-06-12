@@ -24,9 +24,9 @@ export const useCartridgeStore = defineStore('cartridge', () => {
     loading.value = true
     try {
       const res = await cartridgeApi.getList(params || {})
-      if (res.code === 0) {
-        cartridges.value = res.data.items
-        total.value = res.data.total
+      if (res?.code === 0) {
+        cartridges.value = Array.isArray(res?.data?.items) ? res.data.items : []
+        total.value = res?.data?.total || 0
       }
     } finally {
       loading.value = false
@@ -47,8 +47,8 @@ export const useCartridgeStore = defineStore('cartridge', () => {
   const fetchPlatforms = async () => {
     try {
       const res = await cartridgeApi.getPlatforms()
-      if (res.code === 0) {
-        platforms.value = res.data
+      if (res?.code === 0) {
+        platforms.value = Array.isArray(res?.data) ? res.data : []
       }
     } catch (error) {
       console.error('Failed to fetch platforms:', error)
@@ -58,8 +58,8 @@ export const useCartridgeStore = defineStore('cartridge', () => {
   const fetchPublishers = async () => {
     try {
       const res = await cartridgeApi.getPublishers()
-      if (res.code === 0) {
-        publishers.value = res.data
+      if (res?.code === 0) {
+        publishers.value = Array.isArray(res?.data) ? res.data : []
       }
     } catch (error) {
       console.error('Failed to fetch publishers:', error)

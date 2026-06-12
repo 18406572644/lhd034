@@ -81,8 +81,8 @@ const loadData = async () => {
       borrowApi.getList(),
       cartridgeApi.getList({ pageSize: 1000 })
     ])
-    if (res1.code === 0) records.value = res1.data
-    if (res2.code === 0) cartridges.value = res2.data.items
+    if (res1?.code === 0) records.value = Array.isArray(res1?.data) ? res1.data : []
+    if (res2?.code === 0) cartridges.value = Array.isArray(res2?.data?.items) ? res2.data.items : []
   } finally {
     loading.value = false
   }

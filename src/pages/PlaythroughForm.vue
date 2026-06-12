@@ -48,7 +48,7 @@ const validate = () => {
 const loadCartridges = async () => {
   try {
     const res = await cartridgeApi.getList({ pageSize: 100 })
-    cartridges.value = res.data.items
+    cartridges.value = Array.isArray(res?.data?.items) ? res.data.items : []
   } catch {
     Message.error('加载卡带列表失败')
   }

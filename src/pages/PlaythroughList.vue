@@ -49,8 +49,8 @@ const loadList = async () => {
     const params = { page: page.value, pageSize: pageSize.value, ...filters }
     Object.keys(params).forEach(k => !params[k as keyof typeof params] && delete params[k as keyof typeof params])
     const res = await playthroughApi.getList(params)
-    items.value = res.data.items
-    total.value = res.data.total
+    items.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    total.value = res?.data?.total || 0
   } finally {
     loading.value = false
   }

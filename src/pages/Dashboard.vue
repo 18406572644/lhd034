@@ -77,8 +77,8 @@ const loadData = async () => {
       cartridgeApi.getList({ pageSize: 5 }),
       playthroughApi.getList({ pageSize: 5 })
     ])
-    if (cartRes.code === 0) recentCartridges.value = cartRes.data.items
-    if (playRes.code === 0) recentPlaythroughs.value = playRes.data.items
+    if (cartRes?.code === 0) recentCartridges.value = Array.isArray(cartRes?.data?.items) ? cartRes.data.items : []
+    if (playRes?.code === 0) recentPlaythroughs.value = Array.isArray(playRes?.data?.items) ? playRes.data.items : []
   } finally {
     loading.value = false
   }

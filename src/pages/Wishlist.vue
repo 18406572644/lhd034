@@ -28,8 +28,8 @@ const loadData = async () => {
       wishlistApi.getList(),
       cartridgeApi.getList({ pageSize: 100 })
     ])
-    items.value = wishRes.data
-    cartridges.value = cartRes.data.items
+    items.value = Array.isArray(wishRes?.data) ? wishRes.data : []
+    cartridges.value = Array.isArray(cartRes?.data?.items) ? cartRes.data.items : []
   } finally {
     loading.value = false
   }
@@ -68,8 +68,8 @@ const openDialog = (item?: WishlistItem) => {
     form.cartridgeId = item.cartridgeId
     form.priority = item.priority
     form.plannedStartDate = item.plannedStartDate
-    form.tags = item.tags.join(', ')
-    form.notes = item.notes
+    form.tags = Array.isArray(item.tags) ? item.tags.join(', ') : ''
+    form.notes = item.notes || ''
   } else {
     form.cartridgeId = availableCartridges.value[0]?.id || 0
     form.priority = 'medium'
@@ -181,7 +181,7 @@ onMounted(loadData)
                     <span class="text-text-secondary">📅</span>
                     <span>预计开始: {{ formatDate(item.plannedStartDate) }}</span>
                   </div>
-                  <div v-if="item.tags.length > 0" class="flex items-center gap-1 flex-wrap">
+                  <div v-if="item.tags && item.tags.length > 0" class="flex items-center gap-1 flex-wrap">
                     <span v-for="tag in item.tags" :key="tag" class="pixel-badge !text-[8px] !px-1.5 !py-0.5">
                       #{{ tag }}
                     </span>

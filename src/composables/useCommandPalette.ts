@@ -26,6 +26,12 @@ const hotSearches = [
   '待玩清单'
 ]
 
+const safeArray = <T>(arr: T[] | null | undefined): T[] =>
+  Array.isArray(arr) ? arr : []
+
+const safeJoin = (arr: string[] | null | undefined, separator: string = ', '): string =>
+  safeArray(arr).join(separator)
+
 export function useCommandPalette() {
   const router = useRouter()
   const visible = ref(false)
@@ -170,48 +176,59 @@ export function useCommandPalette() {
         borrowApi.getList()
       ])
 
-      if (cartridgesRes.status === 'fulfilled' && cartridgesRes.value.code === 0) {
-        cartridgeItems.value = cartridgesRes.value.data.items.map((c: Cartridge) => ({
+      if (cartridgesRes.status === 'fulfilled' && cartridgesRes.value?.code === 0) {
+        const items = safeArray(cartridgesRes.value?.data?.items)
+        cartridgeItems.value = items.map((c: Cartridge) => ({
           id: `cartridge-${c.id}`,
-          label: c.title,
-          description: `${c.platform} · ${c.publisher}`,
+          label: c.title || `卡带 #${c.id}`,
+          description: `${c.platform || ''} · ${c.publisher || ''}`,
           icon: '📚',
           category: 'cartridge' as const,
           route: `/cartridges/${c.id}`
         }))
       }
 
-      if (playthroughsRes.status === 'fulfilled' && playthroughsRes.value.code === 0) {
-        playthroughItems.value = playthroughsRes.value.data.items.map((p: Playthrough) => ({
+      if (playthroughsRes.status === 'fulfilled' && playthroughsRes.value?.code === 0) {
+        const items = safeArray(playthroughsRes.value?.data?.items)
+        playthroughItems.value = items.map((p: Playthrough) => ({
           id: `playthrough-${p.id}`,
           label: p.cartridge?.title || `通关记录 #${p.id}`,
-          description: `${p.completionDate} · ${p.playTimeHours}h`,
+          description: `${p.completionDate || ''} · ${p.playTimeHours ?? 0}h`,
           icon: '🏆',
           category: 'playthrough' as const,
           route: `/cartridges/${p.cartridgeId}`
         }))
       }
 
-      if (wishlistRes.status === 'fulfilled' && wishlistRes.value.code === 0) {
-        wishlistItems.value = wishlistRes.value.data.map((w: WishlistItem) => ({
-          id: `wishlist-${w.id}`,
-          label: w.cartridge?.title || `待玩 #${w.id}`,
-          description: `${w.priority === 'high' ? '高优先级' : w.priority === 'medium' ? '中优先级' : '低优先级'} · ${w.tags.join(', ')}`,
-          icon: '⭐',
-          category: 'wishlist' as const,
-          route: `/wishlist`
-        }))
+      if (wishlistRes.status === 'fulfilled' && wishlistRes.value?.code === 0) {
+        const items = safeArray(wishlistRes.value?.data)
+        wishlistItems.value = items.map((w: WishlistItem) => {
+          const priorityLabel = w.priority === 'high' ? '高优先级' : w.priority === 'medium' ? '中优先级' : '低优先级'
+          const tagsStr = safeJoin(w.tags)
+          return {
+            id: `wishlist-${w.id}`,
+            label: w.cartridge?.title || `待玩 #${w.id}`,
+            description: tagsStr ? `${priorityLabel} · ${tagsStr}` : priorityLabel,
+            icon: '⭐',
+            category: 'wishlist' as const,
+            route: `/wishlist`
+          }
+        })
       }
 
-      if (borrowRes.status === 'fulfilled' && borrowRes.value.code === 0) {
-        borrowItems.value = borrowRes.value.data.map((b: BorrowRecord) => ({
-          id: `borrow-${b.id}`,
-          label: b.cartridge?.title || `借出 #${b.id}`,
-          description: `${b.borrowerName} · ${b.status === 'borrowed' ? '借出中' : b.status === 'returned' ? '已归还' : '已逾期'}`,
-          icon: '🔄',
-          category: 'borrow' as const,
-          route: `/borrows`
-        }))
+      if (borrowRes.status === 'fulfilled' && borrowRes.value?.code === 0) {
+        const items = safeArray(borrowRes.value?.data)
+        borrowItems.value = items.map((b: BorrowRecord) => {
+          const statusLabel = b.status === 'borrowed' ? '借出中' : b.status === 'returned' ? '已归还' : '已逾期'
+          return {
+            id: `borrow-${b.id}`,
+            label: b.cartridge?.title || `借出 #${b.id}`,
+            description: `${b.borrowerName || ''} · ${statusLabel}`,
+            icon: '🔄',
+            category: 'borrow' as const,
+            route: `/borrows`
+          }
+        })
       }
     } finally {
       loading.value = false

@@ -165,9 +165,9 @@ const loadData = async () => {
       cartridgeApi.getPlatforms(),
       cartridgeApi.getPublishers()
     ])
-    if (cartRes.code === 0) cartridges.value = cartRes.data.items
-    if (platRes.code === 0) platforms.value = platRes.data
-    if (pubRes.code === 0) publishers.value = pubRes.data
+    if (cartRes?.code === 0) cartridges.value = Array.isArray(cartRes?.data?.items) ? cartRes.data.items : []
+    if (platRes?.code === 0) platforms.value = Array.isArray(platRes?.data) ? platRes.data : []
+    if (pubRes?.code === 0) publishers.value = Array.isArray(pubRes?.data) ? pubRes.data : []
   } finally {
     loading.value = false
   }
