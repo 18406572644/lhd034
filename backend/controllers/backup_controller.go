@@ -111,7 +111,7 @@ func (ctrl *BackupController) ListBackups(c *gin.Context) {
 		return
 	}
 
-	var backups []BackupInfo
+	backups := make([]BackupInfo, 0)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".db") {
 			continue

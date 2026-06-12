@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { backupApi } from '@/api'
 import type { BackupInfo, BackupConfig } from '@/types'
-import { FrequencyLabels } from '@/types'
 
 const backups = ref<BackupInfo[]>([])
 const loading = ref(false)
@@ -26,6 +25,7 @@ const formatSize = (bytes: number) => {
 }
 
 const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
   const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
@@ -41,7 +41,7 @@ const loadBackups = async () => {
   try {
     const res = await backupApi.getList()
     if (res.code === 0) {
-      backups.value = res.data
+      backups.value = res.data || []
     }
   } finally {
     loading.value = false
@@ -52,7 +52,7 @@ const loadConfig = async () => {
   configLoading.value = true
   try {
     const res = await backupApi.getConfig()
-    if (res.code === 0) {
+    if (res.code === 0 && res.data) {
       config.value = res.data
     }
   } finally {
@@ -67,6 +67,7 @@ const handleCreateBackup = async () => {
     if (res.code === 0) {
       await loadBackups()
     }
+  } catch {
   } finally {
     creating.value = false
   }
@@ -80,9 +81,10 @@ const handleRestore = async (filename: string) => {
   try {
     const res = await backupApi.restoreBackup(filename)
     if (res.code === 0) {
-      alert(`数据库恢复成功！\n\n已创建恢复前快照: ${res.data.snapshotFilename}`)
+      alert(`数据库恢复成功！\n\n已创建恢复前快照: ${res.data?.snapshotFilename || ''}`)
       await loadBackups()
     }
+  } catch {
   } finally {
     restoring.value = null
   }
@@ -98,6 +100,7 @@ const handleDelete = async (filename: string) => {
     if (res.code === 0) {
       await loadBackups()
     }
+  } catch {
   } finally {
     deleting.value = null
   }
@@ -107,9 +110,10 @@ const handleSaveConfig = async () => {
   configSaving.value = true
   try {
     const res = await backupApi.updateConfig(config.value)
-    if (res.code === 0) {
+    if (res.code === 0 && res.data) {
       config.value = res.data
     }
+  } catch {
   } finally {
     configSaving.value = false
   }
@@ -130,7 +134,7 @@ const retentionOptions = [
 ]
 
 const isSnapshot = (filename: string) => {
-  return filename.startsWith('pre_restore_snapshot_')
+  return typeof filename === 'string' && filename.startsWith('pre_restore_snapshot_')
 }
 
 onMounted(() => {
@@ -231,13 +235,13 @@ onMounted(() => {
         加载中...
       </div>
 
-      <div v-else-if="backups.length === 0" class="text-center py-8 text-text-secondary">
+      <div v-else-if="!backups || backups.length === 0" class="text-center py-8 text-text-secondary">
         暂无备份记录
       </div>
 
       <div v-else class="space-y-3">
         <div
-          v-for="backup in backups"
+          v-for="backup in (backups || [])"
           :key="backup.filename"
           class="p-4 bg-dark-bg-2 border-2 border-neon-blue/30 hover:border-neon-blue transition-all"
         >
