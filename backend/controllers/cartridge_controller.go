@@ -28,6 +28,7 @@ func (ctrl *CartridgeController) GetList(c *gin.Context) {
 	publisher := c.Query("publisher")
 	condition := c.Query("condition")
 	year := c.Query("year")
+	status := c.Query("status")
 	search := c.Query("search")
 
 	if page < 1 {
@@ -51,6 +52,9 @@ func (ctrl *CartridgeController) GetList(c *gin.Context) {
 	if year != "" {
 		query = query.Where("release_year = ?", year)
 	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
 	if search != "" {
 		query = query.Where("title LIKE ? OR publisher LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
@@ -59,7 +63,7 @@ func (ctrl *CartridgeController) GetList(c *gin.Context) {
 	query.Count(&total)
 
 	var cartridges []models.Cartridge
-	query.Preload("Review").Preload("Wishlist").
+	query.Preload("Review").Preload("Wishlist").Preload("Sessions").
 		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
@@ -80,6 +84,7 @@ func (ctrl *CartridgeController) GetByID(c *gin.Context) {
 		Preload("Review").
 		Preload("Wishlist").
 		Preload("BorrowRecords").
+		Preload("Sessions").
 		First(&cartridge, id)
 
 	if result.Error != nil {

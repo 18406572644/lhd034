@@ -19,6 +19,7 @@ export const useCartridgeStore = defineStore('cartridge', () => {
     condition?: string
     year?: string
     search?: string
+    status?: string
   }) => {
     loading.value = true
     try {

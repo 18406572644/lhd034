@@ -29,6 +29,7 @@ func SetupRouter() *gin.Engine {
 		wishlistCtrl := controllers.NewWishlistController()
 		borrowCtrl := controllers.NewBorrowController()
 		statsCtrl := controllers.NewStatisticsController()
+		sessionCtrl := controllers.NewPlayingSessionController()
 
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -90,6 +91,19 @@ func SetupRouter() *gin.Engine {
 			statistics.GET("/publishers", statsCtrl.GetPublishers)
 			statistics.GET("/conditions", statsCtrl.GetConditions)
 		}
+
+		sessions := api.Group("/sessions")
+		{
+			sessions.GET("", sessionCtrl.GetList)
+			sessions.GET("/playing", sessionCtrl.GetPlayingCartridges)
+			sessions.GET("/:id", sessionCtrl.GetProgress)
+			sessions.POST("", sessionCtrl.Create)
+			sessions.PUT("/:id", sessionCtrl.Update)
+			sessions.DELETE("/:id", sessionCtrl.Delete)
+		}
+
+		cartridges.GET("/:id/sessions", sessionCtrl.GetByCartridge)
+		cartridges.GET("/:id/progress", sessionCtrl.GetProgress)
 
 		backups := api.Group("/backups")
 		{

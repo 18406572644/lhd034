@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message, Modal, Tabs, TabPane } from '@arco-design/web-vue'
-import { cartridgeApi, borrowApi, wishlistApi } from '@/api'
-import { ConditionLabels, StatusLabels } from '@/types'
-import type { Cartridge, Playthrough, Review, BorrowRecord } from '@/types'
+import { cartridgeApi, borrowApi, wishlistApi, sessionApi, playthroughApi } from '@/api'
+import { ConditionLabels, StatusLabels, PlayStatusLabels, PlayStatusBadgeClass } from '@/types'
+import type { Cartridge, Playthrough, Review, BorrowRecord, PlayingSession } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,10 +13,21 @@ const cartridge = ref<Cartridge | null>(null)
 const playthroughs = ref<Playthrough[]>([])
 const review = ref<Review | null>(null)
 const borrowRecords = ref<BorrowRecord[]>([])
+const sessions = ref<PlayingSession[]>([])
 const loading = ref(true)
 const deleteConfirmVisible = ref(false)
+const sessionDialog = ref(false)
+const statusDialog = ref(false)
+const selectedStatus = ref<'unstarted' | 'playing' | 'completed' | 'shelved'>('unstarted')
 
 const id = Number(route.params.id)
+
+const sessionForm = reactive({
+  sessionDate: new Date().toISOString().split('T')[0],
+  durationMinutes: 60,
+  progressPercent: 0,
+  notes: ''
+})
 
 const conditionBadgeClass = (condition: string) => {
   const map: Record<string, string> = {
@@ -51,19 +62,33 @@ const formatDate = (dateStr: string | null) => {
   return dateStr.split('T')[0]
 }
 
+const formatDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return mins > 0 ? `${hours}小时${mins}分钟` : `${hours}小时`
+}
+
+const getCurrentProgress = () => {
+  if (!sessions.value || sessions.value.length === 0) return 0
+  return Math.max(...sessions.value.map(s => s.progressPercent))
+}
+
 const loadData = async () => {
   try {
     loading.value = true
-    const [cartRes, playRes, reviewRes, borrowRes] = await Promise.all([
+    const [cartRes, playRes, reviewRes, borrowRes, sessRes] = await Promise.all([
       cartridgeApi.getById(id),
       cartridgeApi.getPlaythroughs(id),
       cartridgeApi.getReview(id),
-      borrowApi.getList({ cartridgeId: id } as any)
+      borrowApi.getList({ cartridgeId: id }),
+      cartridgeApi.getSessions(id)
     ])
     cartridge.value = cartRes.data
     playthroughs.value = playRes.data
     review.value = reviewRes.data
     borrowRecords.value = borrowRes.data
+    sessions.value = sessRes.data
   } catch (error) {
     Message.error('加载数据失败')
   } finally {
@@ -102,6 +127,56 @@ const handleAddBorrow = () => {
   router.push({ path: '/borrows/new', query: { cartridgeId: String(id) } })
 }
 
+const openSessionDialog = async () => {
+  sessionForm.sessionDate = new Date().toISOString().split('T')[0]
+  sessionForm.durationMinutes = 60
+  try {
+    const progress = await cartridgeApi.getProgress(id)
+    sessionForm.progressPercent = progress.data.currentProgress
+  } catch {
+    sessionForm.progressPercent = getCurrentProgress()
+  }
+  sessionForm.notes = ''
+  sessionDialog.value = true
+}
+
+const saveSession = async () => {
+  try {
+    await sessionApi.create({
+      cartridgeId: id,
+      sessionDate: sessionForm.sessionDate,
+      durationMinutes: sessionForm.durationMinutes,
+      progressPercent: sessionForm.progressPercent,
+      notes: sessionForm.notes
+    })
+    Message.success('会话记录已保存')
+    sessionDialog.value = false
+    loadData()
+  } catch (e) {
+    Message.error('保存失败')
+  }
+}
+
+const openStatusDialog = () => {
+  selectedStatus.value = cartridge.value?.status || 'unstarted'
+  statusDialog.value = true
+}
+
+const saveStatus = async () => {
+  try {
+    await cartridgeApi.update(id, { status: selectedStatus.value })
+    Message.success('状态已更新')
+    statusDialog.value = false
+    loadData()
+  } catch (e) {
+    Message.error('更新失败')
+  }
+}
+
+const setStatus = (key: string) => {
+  selectedStatus.value = key as typeof selectedStatus.value
+}
+
 onMounted(loadData)
 </script>
 
@@ -122,6 +197,8 @@ onMounted(loadData)
         <button class="pixel-btn" @click="router.push('/cartridges')">◀ 返回</button>
         <div class="flex flex-wrap gap-3">
           <button class="pixel-btn" @click="router.push(`/cartridges/${id}/edit`)">✏️ 编辑</button>
+          <button class="pixel-btn" @click="openStatusDialog">🏷️ 修改状态</button>
+          <button class="pixel-btn pixel-btn-primary" @click="openSessionDialog">➕ 记录会话</button>
           <button class="pixel-btn pixel-btn-danger" @click="handleDelete">🗑️ 删除</button>
           <button class="pixel-btn pixel-btn-success" @click="handleAddPlaythrough">🎮 通关记录</button>
           <button class="pixel-btn" @click="handleAddWishlist">📋 待玩</button>
@@ -150,6 +227,22 @@ onMounted(loadData)
               <span class="pixel-badge" :class="conditionBadgeClass(cartridge.condition)">
                 {{ ConditionLabels[cartridge.condition] }}
               </span>
+              <span class="pixel-badge" :class="PlayStatusBadgeClass[cartridge.status || 'unstarted']">
+                {{ PlayStatusLabels[cartridge.status || 'unstarted'] }}
+              </span>
+            </div>
+
+            <div v-if="cartridge.status === 'playing' && getCurrentProgress() > 0" class="mb-6">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-sm pixel-font text-text-secondary">游戏进度</span>
+                <span class="pixel-font text-neon-blue">{{ getCurrentProgress() }}%</span>
+              </div>
+              <div class="pixel-progress">
+                <div
+                  class="pixel-progress-bar"
+                  :style="{ width: `${getCurrentProgress()}%` }"
+                ></div>
+              </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -200,6 +293,44 @@ onMounted(loadData)
                       <div>结局: {{ p.endingType }}</div>
                     </div>
                     <div v-if="p.notes" class="mt-2 text-text-secondary text-sm">{{ p.notes }}</div>
+                  </div>
+                </div>
+              </TabPane>
+
+              <TabPane title="游玩记录" key="sessions">
+                <div v-if="sessions.length === 0" class="text-center py-8 text-text-secondary">
+                  暂无游玩记录
+                  <div class="mt-4">
+                    <button class="pixel-btn pixel-btn-primary" @click="openSessionDialog">
+                      ➕ 记录第一次游玩
+                    </button>
+                  </div>
+                </div>
+                <div v-else class="space-y-4 max-h-96 overflow-y-auto scroll-hidden pr-2">
+                  <div
+                    v-for="(s, idx) in sessions"
+                    :key="s.id"
+                    class="timeline-item pb-4"
+                  >
+                    <div class="flex justify-between items-center mb-2">
+                      <span class="pixel-font text-neon-blue text-sm">
+                        第 {{ sessions.length - idx }} 次游玩
+                      </span>
+                      <span class="text-text-secondary text-sm">{{ formatDate(s.sessionDate) }}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                      <div>⏱️ 时长: {{ formatDuration(s.durationMinutes) }}</div>
+                      <div>📊 进度: {{ s.progressPercent }}%</div>
+                    </div>
+                    <div class="pixel-progress !h-2 mb-2">
+                      <div
+                        class="pixel-progress-bar"
+                        :style="{ width: `${s.progressPercent}%` }"
+                      ></div>
+                    </div>
+                    <div v-if="s.notes" class="text-text-secondary text-sm">
+                      📝 {{ s.notes }}
+                    </div>
                   </div>
                 </div>
               </TabPane>
@@ -289,6 +420,91 @@ onMounted(loadData)
     >
       <p>确定要删除这张卡带吗？此操作无法撤销。</p>
     </Modal>
+
+    <div
+      v-if="sessionDialog"
+      class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click.self="sessionDialog = false"
+    >
+      <div class="pixel-card p-6 max-w-md w-full mx-4">
+        <h3 class="text-bright-yellow mb-4">记录游玩会话</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1 pixel-font">游玩日期</label>
+            <input
+              v-model="sessionForm.sessionDate"
+              type="date"
+              class="pixel-input w-full"
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1 pixel-font">游玩时长（分钟）</label>
+            <input
+              v-model.number="sessionForm.durationMinutes"
+              type="number"
+              min="0"
+              class="pixel-input w-full"
+              placeholder="如: 90"
+            />
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1 pixel-font">当前进度百分比</label>
+            <input
+              v-model.number="sessionForm.progressPercent"
+              type="range"
+              min="0"
+              max="100"
+              class="w-full"
+            />
+            <div class="text-center pixel-font text-neon-blue mt-1">
+              {{ sessionForm.progressPercent }}%
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1 pixel-font">备注</label>
+            <textarea
+              v-model="sessionForm.notes"
+              class="pixel-input w-full"
+              rows="3"
+              placeholder="记录本次游玩的内容、感受..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="flex gap-4 justify-end mt-6">
+          <button class="pixel-btn" @click="sessionDialog = false">取消</button>
+          <button class="pixel-btn pixel-btn-primary" @click="saveSession">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="statusDialog"
+      class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      @click.self="statusDialog = false"
+    >
+      <div class="pixel-card p-6 max-w-md w-full mx-4">
+        <h3 class="text-bright-yellow mb-4">修改游玩状态</h3>
+        <div class="space-y-2 mb-6">
+          <label
+            v-for="(label, key) in PlayStatusLabels"
+            :key="key"
+            class="flex items-center gap-3 cursor-pointer p-3 pixel-border"
+            :class="{ '!border-bright-yellow': selectedStatus === key }"
+            @click="setStatus(key)"
+          >
+            <div
+              class="w-4 h-4 border-2"
+              :class="selectedStatus === key ? 'bg-bright-yellow border-bright-yellow' : 'border-neon-blue'"
+            ></div>
+            <span class="pixel-badge" :class="PlayStatusBadgeClass[key]">{{ label }}</span>
+          </label>
+        </div>
+        <div class="flex gap-4 justify-end">
+          <button class="pixel-btn" @click="statusDialog = false">取消</button>
+          <button class="pixel-btn pixel-btn-primary" @click="saveStatus">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

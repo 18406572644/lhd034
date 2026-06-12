@@ -34,12 +34,14 @@ type Cartridge struct {
 	Screenshots   StringArray  `gorm:"type:text" json:"screenshots"`
 	Region        string       `json:"region"`
 	Notes         string       `gorm:"type:text" json:"notes"`
+	Status        string       `gorm:"not null;default:'unstarted';index" json:"status"`
 	CreatedAt     time.Time    `json:"createdAt"`
 	UpdatedAt     time.Time    `json:"updatedAt"`
-	Playthroughs  []Playthrough `gorm:"foreignKey:CartridgeID" json:"playthroughs,omitempty"`
-	Review        *Review      `gorm:"foreignKey:CartridgeID" json:"review,omitempty"`
+	Playthroughs  []Playthrough  `gorm:"foreignKey:CartridgeID" json:"playthroughs,omitempty"`
+	Review        *Review       `gorm:"foreignKey:CartridgeID" json:"review,omitempty"`
 	Wishlist      *WishlistItem `gorm:"foreignKey:CartridgeID" json:"wishlist,omitempty"`
 	BorrowRecords []BorrowRecord `gorm:"foreignKey:CartridgeID" json:"borrowRecords,omitempty"`
+	Sessions      []PlayingSession `gorm:"foreignKey:CartridgeID" json:"sessions,omitempty"`
 }
 
 type Playthrough struct {
@@ -104,4 +106,15 @@ type Collection struct {
 	CoverImage  string      `json:"coverImage"`
 	CreatedAt   time.Time   `json:"createdAt"`
 	Cartridges  []Cartridge `gorm:"many2many:cartridge_collections;" json:"cartridges,omitempty"`
+}
+
+type PlayingSession struct {
+	ID              uint       `gorm:"primaryKey" json:"id"`
+	CartridgeID     uint       `gorm:"not null;index" json:"cartridgeId"`
+	SessionDate     string     `gorm:"not null;index" json:"sessionDate"`
+	DurationMinutes int        `gorm:"default:0" json:"durationMinutes"`
+	ProgressPercent int        `gorm:"default:0" json:"progressPercent"`
+	Notes           string     `gorm:"type:text" json:"notes"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	Cartridge       *Cartridge `gorm:"foreignKey:CartridgeID" json:"cartridge,omitempty"`
 }

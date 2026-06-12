@@ -18,11 +18,15 @@ func NewBorrowController() *BorrowController {
 
 func (ctrl *BorrowController) GetList(c *gin.Context) {
 	status := c.Query("status")
+	cartridgeId := c.Query("cartridgeId")
 
 	query := database.DB.Model(&models.BorrowRecord{})
 
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	if cartridgeId != "" {
+		query = query.Where("cartridge_id = ?", cartridgeId)
 	}
 
 	var records []models.BorrowRecord

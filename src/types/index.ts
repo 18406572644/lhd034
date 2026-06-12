@@ -24,12 +24,14 @@ export interface Cartridge {
   screenshots: string[]
   region: string
   notes: string
+  status: 'unstarted' | 'playing' | 'completed' | 'shelved'
   createdAt: string
   updatedAt: string
   playthroughs?: Playthrough[]
   review?: Review | null
   wishlist?: WishlistItem | null
   borrowRecords?: BorrowRecord[]
+  sessions?: PlayingSession[]
 }
 
 export interface Playthrough {
@@ -45,6 +47,35 @@ export interface Playthrough {
   notes: string
   createdAt: string
   cartridge?: Cartridge
+}
+
+export interface PlayingSession {
+  id: number
+  cartridgeId: number
+  sessionDate: string
+  durationMinutes: number
+  progressPercent: number
+  notes: string
+  createdAt: string
+  cartridge?: Cartridge
+}
+
+export interface PlayingProgress {
+  cartridgeId: number
+  currentProgress: number
+  totalSessions: number
+  totalMinutes: number
+  estimatedRemaining: number | null
+  sessions: PlayingSession[]
+}
+
+export interface PlayingCartridgeProgress {
+  cartridge: Cartridge
+  currentProgress: number
+  totalSessions: number
+  totalMinutes: number
+  estimatedRemaining: number | null
+  latestSession: PlayingSession | null
 }
 
 export interface Review {
@@ -182,4 +213,18 @@ export const FrequencyLabels: Record<string, string> = {
   daily: '每日',
   weekly: '每周',
   monthly: '每月'
+}
+
+export const PlayStatusLabels: Record<string, string> = {
+  unstarted: '未开始',
+  playing: '进行中',
+  completed: '已通关',
+  shelved: '搁置'
+}
+
+export const PlayStatusBadgeClass: Record<string, string> = {
+  unstarted: '',
+  playing: 'pixel-badge-warning',
+  completed: 'pixel-badge-success',
+  shelved: 'pixel-badge-danger'
 }

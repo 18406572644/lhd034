@@ -14,7 +14,10 @@ import type {
   PublisherStat,
   ConditionStat,
   BackupInfo,
-  BackupConfig
+  BackupConfig,
+  PlayingSession,
+  PlayingProgress,
+  PlayingCartridgeProgress
 } from '@/types'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -53,6 +56,7 @@ export const cartridgeApi = {
     condition?: string
     year?: string
     search?: string
+    status?: string
   }) {
     return api.get<PagedResponse<Cartridge>>('/cartridges', { params })
   },
@@ -86,6 +90,12 @@ export const cartridgeApi = {
   },
   getReview(id: number) {
     return api.get<Review | null>(`/cartridges/${id}/review`)
+  },
+  getSessions(id: number) {
+    return api.get<PlayingSession[]>(`/cartridges/${id}/sessions`)
+  },
+  getProgress(id: number) {
+    return api.get<PlayingProgress>(`/cartridges/${id}/progress`)
   }
 }
 
@@ -104,6 +114,27 @@ export const playthroughApi = {
   },
   delete(id: number) {
     return api.delete(`/playthroughs/${id}`)
+  }
+}
+
+export const sessionApi = {
+  getList(params?: { cartridgeId?: number }) {
+    return api.get<PlayingSession[]>('/sessions', { params })
+  },
+  getPlaying() {
+    return api.get<PlayingCartridgeProgress[]>('/sessions/playing')
+  },
+  getProgress(id: number) {
+    return api.get<PlayingProgress>(`/sessions/${id}`)
+  },
+  create(data: Partial<PlayingSession>) {
+    return api.post<PlayingSession>('/sessions', data)
+  },
+  update(id: number, data: Partial<PlayingSession>) {
+    return api.put<PlayingSession>(`/sessions/${id}`, data)
+  },
+  delete(id: number) {
+    return api.delete(`/sessions/${id}`)
   }
 }
 
@@ -135,7 +166,7 @@ export const wishlistApi = {
 }
 
 export const borrowApi = {
-  getList(params?: { status?: string }) {
+  getList(params?: { status?: string; cartridgeId?: number }) {
     return api.get<BorrowRecord[]>('/borrows', { params })
   },
   getById(id: number) {

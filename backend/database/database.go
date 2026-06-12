@@ -41,6 +41,7 @@ func InitDB() {
 		&models.WishlistItem{},
 		&models.BorrowRecord{},
 		&models.Collection{},
+		&models.PlayingSession{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)

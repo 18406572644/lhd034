@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { cartridgeApi } from '@/api'
-import { PlatformOptions, ConditionOptions } from '@/types'
+import { PlatformOptions, ConditionOptions, PlayStatusLabels } from '@/types'
 import type { Cartridge } from '@/types'
 
 const route = useRoute()
@@ -22,6 +22,7 @@ const form = reactive({
   publisher: '',
   releaseYear: 0,
   condition: 'good' as Cartridge['condition'],
+  status: 'unstarted' as Cartridge['status'],
   purchasePrice: 0,
   purchaseDate: '',
   region: '',
@@ -69,6 +70,7 @@ const loadData = async () => {
       publisher: data.publisher,
       releaseYear: data.releaseYear,
       condition: data.condition,
+      status: data.status || 'unstarted',
       purchasePrice: data.purchasePrice,
       purchaseDate: data.purchaseDate ? data.purchaseDate.split('T')[0] : '',
       region: data.region || '',
@@ -278,6 +280,16 @@ onMounted(async () => {
                   class="pixel-input w-full"
                 />
               </div>
+            </div>
+
+            <div>
+              <label class="block text-sm text-text-secondary mb-1 pixel-font">游玩状态</label>
+              <select v-model="form.status" class="pixel-input w-full">
+                <option value="unstarted">未开始</option>
+                <option value="playing">进行中</option>
+                <option value="completed">已通关</option>
+                <option value="shelved">搁置</option>
+              </select>
             </div>
 
             <div>
